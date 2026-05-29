@@ -1,0 +1,50 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.egg-info/
+.eggs/
+dist/
+build/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Training logs & checkpoints (RSL-RL, SKRL, SB3)
+logs/
+runs/
+outputs/
+multirun/
+
+# Weights & Biases
+wandb/
+
+# TensorBoard
+events.out.tfevents.*
+
+# Model checkpoints (opt-in with git lfs instead)
+*.pt
+*.pth
+*.onnx
+
+# Isaac Sim / Omniverse cache
+.nvidia-omniverse/
+kit/
+_isaac_sim/
+*.usd.bak
+*.usda.bak
+
+# Hydra
+.hydra/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
