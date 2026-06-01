@@ -1,8 +1,4 @@
-"""H1 standing-balance environment.
-
-Sparse reward: -1 penalty (via termination) when the robot falls.
-No velocity commands — the sole objective is to remain upright.
-"""
+"""H1 standing-balance environment."""
 
 import isaaclab.sim as sim_utils
 import isaaclab.envs.mdp as mdp
@@ -22,7 +18,6 @@ from isaaclab.utils.assets import ISAACLAB_NUCLEUS_DIR
 from isaaclab.utils.noise import AdditiveUniformNoiseCfg as Unoise
 
 from isaaclab_assets import H1_MINIMAL_CFG  # isort: skip
-
 
 # ---------------------------------------------------------------------------
 # Scene
@@ -86,7 +81,7 @@ class H1BalanceActionsCfg:
 class H1BalanceObservationsCfg:
     @configclass
     class PolicyCfg(ObsGroup):
-        # Tilt / orientation signal
+        # Tilt / orientation signal (vestibular-like)
         projected_gravity = ObsTerm(
             func=mdp.projected_gravity,
             noise=Unoise(n_min=-0.05, n_max=0.05),
@@ -105,11 +100,14 @@ class H1BalanceObservationsCfg:
             func=mdp.joint_vel_rel,
             noise=Unoise(n_min=-1.5, n_max=1.5),
         )
+        # Previous action
         actions = ObsTerm(func=mdp.last_action)
 
         def __post_init__(self):
-            self.enable_corruption = True
-            self.concatenate_terms = True
+            self.enable_corruption = True  # Apply noise to observations
+            self.concatenate_terms = (
+                True  # Concatenate all terms into a single observation vector
+            )
 
     policy: PolicyCfg = PolicyCfg()
 
@@ -150,7 +148,7 @@ class H1BalanceEventCfg:
 
 
 # ---------------------------------------------------------------------------
-# Rewards  — sparse: only a fall penalty
+# Rewards
 # ---------------------------------------------------------------------------
 
 
@@ -158,6 +156,15 @@ class H1BalanceEventCfg:
 class H1BalanceRewardsCfg:
     # -1 when the episode terminates due to a fall
     termination_penalty = RewTerm(func=mdp.is_terminated, weight=-1.0)
+
+    # Penalize ankle deviation from neutral — encourages active ankle corrections for balance
+    ankle_correction = RewTerm(
+        func=mdp.joint_deviation_l1,
+        weight=-0.05,
+        params={
+            "asset_cfg": SceneEntityCfg("robot", joint_names=[".*_ankle"]),
+        },
+    )
 
 
 # ---------------------------------------------------------------------------

@@ -1,11 +1,4 @@
-"""Train the H1 balance task with RSL-RL.
-
-Usage (from IsaacLab root, with the isaaclab Python environment active):
-
-    python my_scripts/Walker/train.py --task Isaac-Balance-H1-v0 --num_envs 1024
-
-Add --headless to train without the viewport.
-"""
+"""Train the H1 balance task with RSL-RL."""
 
 import argparse
 import sys
@@ -14,9 +7,9 @@ import os
 from isaaclab.app import AppLauncher
 
 # -- CLI args (reuse the rsl_rl helper that ships with IsaacLab)
-sys.path.insert(0, "scripts/reinforcement_learning/rsl_rl")
+sys.path.insert(0, r"S:\IsaacLab\scripts\reinforcement_learning\rsl_rl")
 # -- Allows python to find the custom env and agent configs defined in this folder
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
+sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 import cli_args  # noqa: E402  isort: skip
 
 parser = argparse.ArgumentParser(description="Train H1 balance with RSL-RL.")
@@ -42,7 +35,6 @@ simulation_app = app_launcher.app
 
 # -- Imports after sim is up
 import os
-from datetime import datetime
 
 import gymnasium as gym
 import torch
@@ -60,7 +52,7 @@ from isaaclab_rl.rsl_rl import (
 import importlib.metadata as metadata
 
 import isaaclab_tasks  # noqa: F401  (keeps built-in tasks available)
-import my_scripts.Walker  # noqa: F401  registers Isaac-Balance-H1-v0
+import Walker  # noqa: F401  registers Isaac-Balance-H1-v0
 
 from isaaclab_tasks.utils import get_checkpoint_path
 from isaaclab_tasks.utils.hydra import hydra_task_config
@@ -89,10 +81,15 @@ def main(env_cfg: ManagerBasedRLEnvCfg, agent_cfg: RslRlBaseRunnerCfg):
         args_cli.device if args_cli.device is not None else env_cfg.sim.device
     )
 
-    log_root_path = os.path.abspath(
-        os.path.join("logs", "rsl_rl", agent_cfg.experiment_name)
-    )
-    log_dir = os.path.join(log_root_path, datetime.now().strftime("%Y-%m-%d_%H-%M-%S"))
+    log_root_path = r"S:\IL-RL\Walker\logs\h1-balance"
+    os.makedirs(log_root_path, exist_ok=True)
+    existing = [
+        d
+        for d in os.listdir(log_root_path)
+        if d.startswith("run_") and os.path.isdir(os.path.join(log_root_path, d))
+    ]
+    next_run = max((int(d.split("_")[1]) for d in existing), default=0) + 1
+    log_dir = os.path.join(log_root_path, f"run_{next_run:03d}")
     print(f"[INFO] Logging to: {log_dir}")
 
     env_cfg.log_dir = log_dir
