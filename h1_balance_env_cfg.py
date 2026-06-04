@@ -154,11 +154,24 @@ class H1BalanceEventCfg:
 
 @configclass
 class H1BalanceRewardsCfg:
-    # -1 when the episode terminates due to a fall
+    # Positive reward for each step the robot remains alive (not fallen)
+    staying_alive = RewTerm(func=mdp.is_alive, weight=0.05)
+
+    # -1.0 discrete penalty when the episode terminates due to a fall
     termination_penalty = RewTerm(func=mdp.is_terminated, weight=-1.0)
 
+    # Penalize non-flat orientation
+    orientation_penalty = RewTerm(func=mdp.flat_orientation_l2, weight=-0.1)
+
+    # Penalize angular velocity / tilt changes — encourages smoother balancing corrections
+    tilt_pitch_penalty = RewTerm(func=mdp.ang_vel_xy_l2, weight=-0.05)
+
+    # Penalize large actions and jerky action changes
+    action_l2 = RewTerm(func=mdp.action_l2, weight=-0.01)
+    action_rate_l2 = RewTerm(func=mdp.action_rate_l2, weight=-0.01)
+
     # Penalize ankle deviation from neutral — encourages active ankle corrections for balance
-    ankle_correction = RewTerm(
+    ankle_penalty = RewTerm(
         func=mdp.joint_deviation_l1,
         weight=-0.05,
         params={
@@ -201,9 +214,11 @@ class H1BalanceEnvCfg(ManagerBasedRLEnvCfg):
     events: H1BalanceEventCfg = H1BalanceEventCfg()
 
     def __post_init__(self):
-        self.decimation = 4
-        self.episode_length_s = 20.0
-        self.sim.dt = 0.005
+        self.decimation = 4  # policy acts every 4 physics steps (50hz) (200hz / 4)
+        self.episode_length_s = 20.0  # 20-second episodes (1000 steps (20s x 50hz))
+        self.sim.dt = (
+            0.005  # delta time. 200hz physics (1 physics step every 0.005s (1/0.005))
+        )
         self.sim.render_interval = self.decimation
         if self.scene.contact_forces is not None:
             self.scene.contact_forces.update_period = self.decimation * self.sim.dt
@@ -211,9 +226,10 @@ class H1BalanceEnvCfg(ManagerBasedRLEnvCfg):
 
 @configclass
 class H1BalanceEnvCfg_PLAY(H1BalanceEnvCfg):
+    # Config for play: viewing checkpoints with Isaac Sim
     def __post_init__(self):
         super().__post_init__()
         self.scene.num_envs = 32
         self.scene.env_spacing = 2.5
         self.episode_length_s = 40.0
-        self.observations.policy.enable_corruption = False
+        self.observations.policy.enable_corruption = True
