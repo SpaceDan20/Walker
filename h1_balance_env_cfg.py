@@ -18,6 +18,7 @@ from isaaclab.utils.assets import ISAACLAB_NUCLEUS_DIR
 from isaaclab.utils.noise import AdditiveUniformNoiseCfg as Unoise
 
 from isaaclab_assets import H1_MINIMAL_CFG  # isort: skip
+import rewards as custom_rewards  # isort: skip
 
 # ---------------------------------------------------------------------------
 # Scene
@@ -160,24 +161,30 @@ class H1BalanceRewardsCfg:
     # -1.0 discrete penalty when the episode terminates due to a fall
     termination_penalty = RewTerm(func=mdp.is_terminated, weight=-1.0)
 
-    # Penalize non-flat orientation
-    orientation_penalty = RewTerm(func=mdp.flat_orientation_l2, weight=-0.1)
+    # Custom torso drifting penalty
+    torso_drift_penalty = RewTerm(func=custom_rewards.torso_drift_l2, weight=-0.1)
 
-    # Penalize angular velocity / tilt changes — encourages smoother balancing corrections
-    tilt_pitch_penalty = RewTerm(func=mdp.ang_vel_xy_l2, weight=-0.05)
+    # Z-axis penalty (discourage jumping)
+    vertical_penalty = RewTerm(func=mdp.lin_vel_z_l2, weight=-0.1)
 
-    # Penalize large actions and jerky action changes
-    action_l2 = RewTerm(func=mdp.action_l2, weight=-0.01)
-    action_rate_l2 = RewTerm(func=mdp.action_rate_l2, weight=-0.01)
+    # # Penalize non-flat orientation
+    # orientation_penalty = RewTerm(func=mdp.flat_orientation_l2, weight=-0.1)
 
-    # Penalize ankle deviation from neutral — encourages active ankle corrections for balance
-    ankle_penalty = RewTerm(
-        func=mdp.joint_deviation_l1,
-        weight=-0.05,
-        params={
-            "asset_cfg": SceneEntityCfg("robot", joint_names=[".*_ankle"]),
-        },
-    )
+    # # Penalize angular velocity / tilt changes — encourages smoother balancing corrections
+    # tilt_pitch_penalty = RewTerm(func=mdp.ang_vel_xy_l2, weight=-0.05)
+
+    # # Penalize large actions and jerky action changes
+    # action_l2 = RewTerm(func=mdp.action_l2, weight=-0.01)
+    # action_rate_l2 = RewTerm(func=mdp.action_rate_l2, weight=-0.01)
+
+    # # Penalize ankle deviation from neutral — encourages active ankle corrections for balance
+    # ankle_penalty = RewTerm(
+    #     func=mdp.joint_deviation_l1,
+    #     weight=-0.05,
+    #     params={
+    #         "asset_cfg": SceneEntityCfg("robot", joint_names=[".*_ankle"]),
+    #     },
+    # )
 
 
 # ---------------------------------------------------------------------------

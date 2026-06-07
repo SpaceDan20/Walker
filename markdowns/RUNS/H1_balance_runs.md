@@ -87,3 +87,67 @@ Adding action and action_rate penalties removed the spastic behavior learned in 
 ### Result:
 
 Halfway through the 1000 iterations, the H1s learned an interesting behavior: bobbing. They stayed relatively still, minimally bobbing up and down to keep somewhat balanced. Unfortunately, this technique did not work, resulting in the H1 falling within 5-6 seconds. However, the H1s started learning how to stay balanced toward the end (i800-i999). Their bobbing technique shifted more into a "lean with it, rock with it" technique. The H1s would lean backwards, shifting their leg and ankle joints to not fall backwards. Occasionally, some H1s would start leaning forward, causing them to shift their leg and ankle joints forward instead. This was done in a more alternating step pattern (one step after another) as opposed to the default both steps back at relatively the same time. Usually, H1s that started balancing forwards would eventually lose balance and hit the ground (oof).
+
+## Run 007
+
+### Hypothesis:
+
+The flat_orientation penalty did help mitigate some of the drifting behavior, but the H1s were still prone to it in nature. It would be really wise to add a custom penalty for H1s drifting away from their origin point, but I would like to experiment with some more built-in functionality first. By adding an angular velocity penalty, the H1s will be incentivized not to "lean with it, rock with it". The old technique may be reshaped to a more forward-backward-forward technique instead, or something new entirely. With a weight of -0.05, this penalty should weigh similarly to the others, leading the H1s to take all of them into account.
+
+### Changes:
+
+- Added angular velocity (tilt/pitch) penalty with weight -0.05
+
+### Result:
+
+Although the H1s failed to balance for a whole episode by the last iteration, the new angular velocity penalty on top of the current rewards actually eliminated the drifting problem. By the last iteration, the H1s were showing clear signs of attempted balance. However, they did not overcome their falls. Eventually, their torsos (and overall COM) would tip slightly forward or backward, leading to the H1 losing its balance and falling to the ground.
+
+## Run 008
+
+### Hypothesis:
+
+Run 007 offered a close enough look at a potentially good run, so resuming it for another 1000 iterations is meaningful. The H1s will likely figure out how to stay upright given enough iterations.
+
+### Changes:
+
+- 1000 more iterations, resumed from run 007
+
+### Result:
+
+The H1s learned the stanky leg. Fascinating. The learned behavior differed pretty drastically from i999 to i1998. At i999, the H1s did not move their feet much, if at all. 1000 iterations later, the H1s shimmy their feet. Interestingly, the H1s developed a behavior where they effectively pivot in a circle. They first lean their torso to the left, over their left leg, then they keep their left leg sturdy with little movement while their right leg twists and shifts forward. This leads them into a perpetual counter-clockwise circle.
+
+Most interestingly of all was one of the 32 H1s I watched closely in the i1998 .pt replay. Unlike the rest of them, this H1 (we'll name him Timmy) got unbalanced early on, leading him to almost tipping backward. However, Timmy still used the stanky leg method. This saved Timmy from falling, but his balance was still controversial. Timmy continued trying to pivot in the same counter-clockwise circle as his peers, but his movements and unstable balance prevented his right foot from moving forward enough to do so. It would usually freeze in place, leading to Timmy tilting backward. Instead of falling, Timmy would pause his counter-clockwise pursuit and shift his right leg back a step or two before trying again. It never prevailed, leaving Timmy in a perpetual backwards clockwise pivot instead. It is fascinating that this method, although clearly optimized for counter-clockwise rotation, still worked for Timmy going clockwise.
+
+There is a philosophical metaphor here as well: No matter how hard you try to be like everybody else, the universe may have a different path carved out for you.
+
+## Run 009
+
+### Hypothesis:
+
+Okay, that's enough philosophy. I have a better grasp on mdp's built-in rewards and how they function. While there may be a specific set of built-in rewards, with appropriate weights, that could better meet the goal of getting an H1 to balance in place, I believe the most efficient method of getting the H1s to actually balance in place would be a custom origin-drifting penalty. The torso would be a good starting point, as the COM generally sits in the lower torso when in a typical standing position.
+
+### Changes:
+
+- Added a custom torso_drift penalty with weight -0.1
+- Temporarily removed all other penalties besides staying_alive and is_terminated
+
+### Result:
+
+Very erratic behavior has returned. Early on, the H1s learned to use vertical space (Z-plane, unpenalized) and a wide-legged stance to balance. However, by i999, the jumping technique became erratic enough to where some of them would jump a good ~0.5m off the ground and come crashing down. Leg movements and torso swiveling also became very severe and desperate. Overall, the H1s weren't able to learn a stable balance in the 1000 iterations.
+
+## Run 010
+
+### Hypothesis:
+
+A couple things. I had assumed the H1s might use jumping as a technique, since I don't have any penalties against verticality. Adding a vertical penalty to supplement the torso_drift penalty will reduce jumping behaviors. In the previous run, the staying_alive reward also overpowered the single torso_drift penalty. By adding a similarly weighted vertical penalty, the two penalties will have a greater effect in the reward space. If not, the staying_alive reward may need to be reduced.
+
+Also, as seen in the past few runs, the H1s tend to start learning toward the end of the 1000 iterations. Increasing to 1500 iterations should capture a better look at learning while also staying resource-efficient. It will allow me to see runs that may start showing signs of progress late (i999-i1200).
+
+### Changes:
+
+- Added vertical penalty with weight -0.1
+- Increased iterations from 1000 --> 1500
+
+### Result:
+
+The H1s developed a unique strategy this time. By i300, they learned to straighten out their legs and start with a sideways torso, forearms flexed. This worked somewhat, but not long enough to balance the whole episode. Eventually, they would tilt too far one way or another and fall over. By i1499, the strategy proved even worse. The H1s got more wobbly and over-reactive, leading to even quicker fall overs. This may actually be a case of overfitting, despite the policy never fully learning how to balance.
