@@ -151,3 +151,5 @@ Also, as seen in the past few runs, the H1s tend to start learning toward the en
 ### Result:
 
 The H1s developed a unique strategy this time. By i300, they learned to straighten out their legs and start with a sideways torso, forearms flexed. This worked somewhat, but not long enough to balance the whole episode. Eventually, they would tilt too far one way or another and fall over. By i1499, the strategy proved even worse. The H1s got more wobbly and over-reactive, leading to even quicker fall overs. This may actually be a case of overfitting, despite the policy never fully learning how to balance.
+
+Over-reactive may not be the best term to describe the learned behavior. By adding a torque tracker, I can confirm that many of the joints are being locked up/maxed out by the policy. Hips and knees especially are continuously sitting/saturating at their 300 N.m sim effort limits, as defined by the H1's asset dicts inside of unitree.py.

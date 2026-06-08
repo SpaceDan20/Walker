@@ -240,3 +240,14 @@ class H1BalanceEnvCfg_PLAY(H1BalanceEnvCfg):
         self.scene.env_spacing = 2.5
         self.episode_length_s = 40.0
         self.observations.policy.enable_corruption = True
+
+
+@configclass
+class H1BalanceEnvCfg_DEEP_PLAY(H1BalanceEnvCfg):
+    # Config for deep play: 4 envs with live joint torque visualization panel
+    def __post_init__(self):
+        super().__post_init__()
+        self.scene.num_envs = 4
+        self.scene.env_spacing = 2.5
+        self.episode_length_s = 40.0
+        self.observations.policy.enable_corruption = False

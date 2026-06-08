@@ -25,3 +25,15 @@ I have also learned that disabling corruption (self.observations.policy.enable_c
 ## Runs 006-009:
 
 I've learned that N.m stands for Newton-Meters, a form of torque measurement. I've also learned that the H1, like many other humanoids presumably, has motors with differing capacities of torque available. The knee joint has the largest potential amount of torque in a joint, sitting at 360 N.m max, whereas other joints have less, like the ankle joint at 45 N.m max. This plays a key factor in reward design decisions, as penalizing all joint torques equally with a penalty like joint_torques_l2 disproportionately affects joints like the ankle while underpenalizing joints like the knee.
+
+## Run 010:
+
+I've learned that torques can be shown as either negative or positive, depending on how the motor orients the "positive" direction. So for a knee joint, a motor trying to extend the knee may be +40 N.m, and if it were bending it backwards, -40 N.m.
+
+I've started to learn about PD (Proportional-derivitive) controllers. Robots like the H1 have a PD controller over a PID (-I-ntegral included) controller because their movements and actions are far too quick for an integral to matter. The integral is too slow, and it would likely lead to worsening the error for a fast-moving robot.
+
+The PD controller sits between the policy and the motor drivers. The PD controller is fed by the policy, and it runs at a much faster pace to keep up with robot actions.
+
+I've also learned that sim torque limits and real hardware limits don't always align. The built in articulation H1_CFG has the H1's hip, knee, and torso limits set to 300 N.m, whereas real hardware on the H1 has a limit of 360 N.m for the knee joints and 220 N.m for the hip and torso joints. The limits are set higher due to sim's 'perfect' nature, where it doesn't account for motor heat and speed. This does introduce a bit of a sim-to-real transfer gap, where the limits would ideally be tweaked to more closely aligned spec if transferring to real hardware.
+
+There are also stiffness and damping values baked into the articulation config. How stiff a joint is determines how aggressively it snaps to a target. Higher stiffness means a joint snaps to a target quicker whereas low stiffness means a joint moreso drifts toward a target. High --> snap; Low --> drift. Damping values control the dampening (duh), which means higher damping values keeps the joint firmly on target and lower damping values allow oscillation from the target.
