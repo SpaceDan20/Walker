@@ -159,7 +159,7 @@ class H1BalanceRewardsCfg:
     staying_alive = RewTerm(func=mdp.is_alive, weight=0.05)
 
     # -1.0 discrete penalty when the episode terminates due to a fall
-    termination_penalty = RewTerm(func=mdp.is_terminated, weight=-1.0)
+    termination_penalty = RewTerm(func=mdp.is_terminated, weight=-10.0)
 
     # Custom torso drifting penalty
     torso_drift_penalty = RewTerm(func=custom_rewards.torso_drift_l2, weight=-0.1)
@@ -167,15 +167,35 @@ class H1BalanceRewardsCfg:
     # Z-axis penalty (discourage jumping)
     vertical_penalty = RewTerm(func=mdp.lin_vel_z_l2, weight=-0.1)
 
-    # # Penalize non-flat orientation
-    # orientation_penalty = RewTerm(func=mdp.flat_orientation_l2, weight=-0.1)
+    # Upper-body velocity penalty (torso + arms only — excludes hips, knees, ankles)
+    upper_body_vel_penalty = RewTerm(
+        func=mdp.joint_vel_l1,
+        weight=-0.01,
+        params={
+            "asset_cfg": SceneEntityCfg(
+                "robot",
+                joint_names=[
+                    "torso",
+                    ".*_shoulder_pitch",
+                    ".*_shoulder_roll",
+                    ".*_shoulder_yaw",
+                    ".*_elbow",
+                ],
+            ),
+        },
+    )
+
+    # Penalize large actions and jerky action changes
+    action_l2 = RewTerm(func=mdp.action_l2, weight=-0.01)
+    action_rate_l2 = RewTerm(func=mdp.action_rate_l2, weight=-0.01)
+
+    # Penalize non-flat orientation
+    orientation_penalty = RewTerm(func=mdp.flat_orientation_l2, weight=-0.1)
+
+    # -------------------- Potential rewards ---------------------------------
 
     # # Penalize angular velocity / tilt changes — encourages smoother balancing corrections
     # tilt_pitch_penalty = RewTerm(func=mdp.ang_vel_xy_l2, weight=-0.05)
-
-    # # Penalize large actions and jerky action changes
-    # action_l2 = RewTerm(func=mdp.action_l2, weight=-0.01)
-    # action_rate_l2 = RewTerm(func=mdp.action_rate_l2, weight=-0.01)
 
     # # Penalize ankle deviation from neutral — encourages active ankle corrections for balance
     # ankle_penalty = RewTerm(

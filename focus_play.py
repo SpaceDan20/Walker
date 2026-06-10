@@ -1,4 +1,4 @@
-"""Deep-play viewer: 1 env with a live joint-torque panel (2 Hz UI updates)."""
+"""Focus-play viewer: 1 env with a live joint-torque panel (10 Hz UI updates)."""
 
 from __future__ import annotations
 
@@ -6,7 +6,7 @@ import argparse
 
 from isaaclab.app import AppLauncher
 
-parser = argparse.ArgumentParser(description="Deep-play a trained H1Balance policy.")
+parser = argparse.ArgumentParser(description="Focus-play a trained H1Balance policy.")
 parser.add_argument(
     "--checkpoint", type=str, required=True, help="Path to the .pt checkpoint file."
 )
@@ -118,8 +118,8 @@ policy_module = runner.alg.policy
 # ── Inference loop ────────────────────────────────────────────────────────────
 
 dt = env.unwrapped.step_dt
-# UI updates at 2 Hz; policy runs at 50 Hz → update every 25 steps
-UI_UPDATE_EVERY = max(1, round(0.5 / dt))
+# UI updates at 10 Hz; policy runs at 50 Hz → update every 5 steps
+UI_UPDATE_EVERY = max(1, round(0.1 / dt))
 
 obs = env.get_observations()
 step = 0

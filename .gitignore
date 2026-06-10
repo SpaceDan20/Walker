@@ -17,6 +17,9 @@ logs/
 outputs/
 multirun/
 
+# Videos
+vids/
+
 # Weights & Biases
 wandb/
 

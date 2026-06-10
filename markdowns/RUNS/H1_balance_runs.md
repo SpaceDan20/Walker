@@ -153,3 +153,82 @@ Also, as seen in the past few runs, the H1s tend to start learning toward the en
 The H1s developed a unique strategy this time. By i300, they learned to straighten out their legs and start with a sideways torso, forearms flexed. This worked somewhat, but not long enough to balance the whole episode. Eventually, they would tilt too far one way or another and fall over. By i1499, the strategy proved even worse. The H1s got more wobbly and over-reactive, leading to even quicker fall overs. This may actually be a case of overfitting, despite the policy never fully learning how to balance.
 
 Over-reactive may not be the best term to describe the learned behavior. By adding a torque tracker, I can confirm that many of the joints are being locked up/maxed out by the policy. Hips and knees especially are continuously sitting/saturating at their 300 N.m sim effort limits, as defined by the H1's asset dicts inside of unitree.py.
+
+## Run 011
+
+### Hypothesis:
+
+The current rewards are a good baseline, and I do believe each of them plays a good part in minimizing what behaviors the robot should not perform. When it comes to balancing, generally the upper body isn't really thought about (minus the human head for the vestibular system). However, robots don't have an inner ear. Most of their balance would come from the lower extremeties (mainly ankle and knee joints, with supplementary hips). I believe another good baseline penalty to add would be to penalize upper body movement heavily. This can be done using l1 vs. l2, as l1 penalizes small movements more aggressively.
+
+### Changes:
+
+- Added l1 upper-body joint velocity penalty with weight -0.05
+
+### Result:
+
+The H1s really want to do a backflip. For some reason, the policy learned to immediately kick hard and flip itself upside-down. This led to extremely short episodes (24 average steps, ~0.5s of time). This is, obviously, not ideal. On a positive note, the upper-body penalties seemed to work; The upper-body joints did not move at all. The problem seems to be an over-reactive and extreme leg response.
+
+Another interesting thing to note would be the penalties. The policy slowly minimized every penalty except for the torso_drift penalty, which got very, very, very slightly worse over time.
+
+## Run 012
+
+### Hypothesis:
+
+As cool as backflips are, they are not the goal here. Stable, human-like balance is. Given the fact that the upper-body joints were relatively fixed in the last run, the upper-body penalty seems to be working and should stay. The main issue is extreme leg movement; enough to literally send the H1 into a backflip. To stop this behavior, we can add back the action penalties. The action_l2 penalty, in particular, should prevent the H1 from wanting to commit large N.m of force suddenly and explosively.
+
+### Changes:
+
+- Readded the l2 action penalties.
+
+### Result:
+
+The H1s want to do the flop now. Instead of the aggressive backflips from run 11, where the H1s usually landed upside-down on their heads, the H1s flopped on their backs in this run. It followed the same general behavior, though: move right foot forward slightly, press it into the ground, and finally use the hip joint (pitch in particular) to drive the leg into the ground, causing the H1 to flip backward. The flops were learned relatively quickly, within the first 100 iterations. Closer to the end (i999), the flops got a bit slower, allowing the H1 to survive a very brief moment longer than in early flops. Similarly to the past few runs, the torso_drift penalty was the only penalty that was, for the most part, ignored.
+
+## Run 013
+
+### Hypothesis:
+
+The action penalties seemed to help, albeit loosely. The strange "kick yourself backward" behavior did start off less aggressive, and eventually slowed down. Judging from the tensorboard graphs, it seems like a reward weight restructing is necessary. The torso_drift penalty probably should not sit at half the weight of the other, simple penalties. Upping the torso_drift penalty to -0.1 is a good start.
+
+Also, the termination penalty is largely useless in its current state. When it was the only reward signal in the space (run 001), it actually helped the H1 learn how to roughly balance. Adding rewards on top of this penalty isn't the inherit problem - it is adding rewards without adjusting the weights properly. Now, with 4 other continuous rewards fighting for gradient attention, the -1.0 discrete termination penalty is effectively white noise, if that. Largely increasing the termination penalty should drive more desire for the H1s to not flop onto the floor.
+
+These two penalty updates should balance the reward landscape and give the H1s a much cleaner signal to learn ideal behavior from.
+
+### Changes:
+
+- Increased torso_drift penalty from -0.05 --> -0.1 to match other continuous penalties
+- Increased termination penatly from -1.0 --> -10.0
+
+### Result:
+
+The flopping behavior continues. The behavior is still learned early, still follows the same exact behavior learned in the past two runs, and still "slows down" over time.
+
+## Run 014
+
+### Hypothesis:
+
+The H1s discovered the backflip in run 11, when the l1 upper_body penalty was added. Ever since then, they can't get enough. They want to backflip/flop very badly. They are so agitated that they are punished for moving their upper body that they simply can't go on. However... they must. Although removing the upper_body penalty would likely result in completely new behaviors being learned, first readding the flat_orientation penalty might mitigate the flopping behavior by penalizing the tilt that occurs in them.
+
+### Changes:
+
+- Readded flat_orientation penalty with weight -0.1
+
+### Result:
+
+No luck. The backflip must be done. This will be a fantastic starting point for my eventual backflipping task. They're already halfway there! All of the penalties followed a similar trend from the past few runs, and the flat_orientation penalty joined the torso_drift penalty in being largely ignored by the policy.
+
+## Run 015
+
+### Hypothesis:
+
+Although there are many variables to take into account, and the recently readded flat_orientation penalty was mostly ignored after the first ~100 iterations, the l1 upper_body penalty is likely to blame for the backflips. A critical issue is that the termination penalty sits at -0.01 (per step), whereas early on, when the flips are learned, the upper_body penalty accumulated as much as -0.07. The penalty is far too strong, and it quickly throws all the other penalties into the void while the policy aggressively minimizes just it. This is also why the torso and upper body all quickly learn to be relatively still as early as i100 (despite tilting due to the backflip/flop).
+
+### Changes:
+
+- Drastically reduce the l1 upper_body vel penalty from -0.1 --> -0.01 (x10)
+
+### Result:
+
+The backflips/flops have been overcome. Although the H1s started demonstrating the same backflip/flop behavior in the first 100 iterations, it was quickly dissapated by i200. The penalty graphs between this run and last look meaningfully different, where most trends breakaway around i100. Interestingly, all penalties started to increase toward the end, with mean_reward dropping, despite the average episode length steadily increasing. By i499, mean_episode_length was increasing substantially, and the H1s were getting close to balancing the whole episode.
+
+The new behavior is getting very close to the goal. The H1s aren't drifting from their origin point like in the first ~10 runs, but they are actively showing signs of balancing. At i499 (last iteration), they do appear to be bending at the knee a bit more than intended. It is worthwhile continuing this run to see if they develop a crouch-like stance to balance, which is undesired behavior but still a step-up from the early, origin-drifting runs.
