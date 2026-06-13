@@ -51,3 +51,11 @@ It is important to keep the relationship between the is_alive reward and the is_
 ## Run 014:
 
 PPO outputs a probability distribution. For continuous control of robot joints like this project, it is likely a Gaussian distribution. I remember encountering the Gaussian distribution when looking at IQ scores and how the general population lines up. We are likely working with a multivariate gaussian distribution, which takes multiple variables into account (since the H1 has lots of joints working in unison). This turns the typical 2D Gaussian distribution with its bell curve and stretches it to multiple dimensions, while retaining the same shape.
+
+## Run 016:
+
+An L2 norm is preferable in the case where a threshold and clip is given, since it can exponentially penalize an undesired behavior the further it goes past the threshold.
+
+## Run 018:
+
+Each run has a params folder set by the policy (RSL-RL in our case) with a few yamls inside. The tensorboard metrics from run 16 & 18 perfectly match because the same seed was used in both yamls (seed=42). If I wanted variation in a run, I would change the seed before starting it. Using a seed means the training is deterministic, which is the preferred way of training due to its advantages in reproducability and ablation (testing different reward configs with the same seed to verify that the reward config is the determining variably). Deterministic training also means that I can test a policy for robustness by training a few runs with different seeds (run 19 could be seed 43, run 20 could be seed 44, etc.).

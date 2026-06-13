@@ -232,3 +232,19 @@ Although there are many variables to take into account, and the recently readded
 The backflips/flops have been overcome. Although the H1s started demonstrating the same backflip/flop behavior in the first 100 iterations, it was quickly dissapated by i200. The penalty graphs between this run and last look meaningfully different, where most trends breakaway around i100. Interestingly, all penalties started to increase toward the end, with mean_reward dropping, despite the average episode length steadily increasing. By i499, mean_episode_length was increasing substantially, and the H1s were getting close to balancing the whole episode.
 
 The new behavior is getting very close to the goal. The H1s aren't drifting from their origin point like in the first ~10 runs, but they are actively showing signs of balancing. At i499 (last iteration), they do appear to be bending at the knee a bit more than intended. It is worthwhile continuing this run to see if they develop a crouch-like stance to balance, which is undesired behavior but still a step-up from the early, origin-drifting runs.
+
+## Run 018 (016 & 017)
+
+### Hypothesis:
+
+The H1s are very close to the stable, human-like balancing behavior we are looking for. The only suboptimal behavior they are demonstrating is a crouch-like stance, bending too much at the knees. This behavior can be penalized by using a custom l2 knee_bend penalty, which calculates a specific threshold (30 degrees in this run's case) and penalizes the knee for exceeding it at an exponential rate. This penalty should teach the H1s to keep their legs relatively straight, finalizing the balancing behavior.
+
+### Changes:
+
+- Added knee_bend_penalty with weight -0.1
+
+### Result:
+
+The H1s learned to keep their legs relatively straight, but at the cost of falling over backwards. The new knee_bend penalty was minimized to nearly 0 up until about i420. At about that iteration, the policy really started to ignore all of the penalties. This is because they learned the same crouch-like stance from last run by ~i500, which extended their average episode length by 2x. Mean reward did drop, however.
+
+Around ~i700, the H1s started to minimize penalties again, attempting to return to the same magnitudes as earlier iterations (200-300). In particular, they stopped crouching and started keeping their legs straight once more. This, unfortunately, led to worsening balance, and the episode length declined to even worse levels than before (~100 --> ~80-90).

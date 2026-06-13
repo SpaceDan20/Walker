@@ -78,22 +78,64 @@ robot = env.unwrapped.scene["robot"]
 joint_names: list[str] = list(robot.data.joint_names)
 max_name_len = max(len(n) for n in joint_names)
 
+# Pre-resolve knee joint indices
+knee_indices = [i for i, n in enumerate(joint_names) if "knee" in n]
+knee_names = [joint_names[i] for i in knee_indices]
+
+RAD_TO_DEG = 180.0 / 3.14159265
+
+# Penalty tracking — read term names from the reward manager
+reward_manager = env.unwrapped.reward_manager
+penalty_names: list[str] = [n for n in reward_manager._episode_sums if n != "termination_penalty"]
+max_penalty_name_len = max(len(n) for n in penalty_names)
+prev_ep_sums: dict[str, float] = {name: 0.0 for name in penalty_names}
+
 torque_window = EmptyWindow(env.unwrapped, "H1 Joint Torques")
 
+penalty_label: ui.Label
+knee_label: ui.Label
 env_labels: list[ui.Label] = []
 with torque_window.ui_window_elements["main_vstack"]:
-    for i in range(num_envs):
-        ui.Label(
-            f"Env {i}",
-            style={"font_size": 20, "color": 0xFFAAAAAA},
+    # ── Penalty tracker ───────────────────────────────────────────────────
+    ui.Label("Penalties", style={"font_size": 20, "color": 0xFFAAAAAA})
+    penalty_label = ui.Label("", style={"font_size": 20}, word_wrap=True)
+    ui.Spacer(height=10)
+
+    # ── Knee bend indicator ───────────────────────────────────────────────
+    ui.Label("Knee Bend", style={"font_size": 20, "color": 0xFFAAAAAA})
+    knee_label = ui.Label("", style={"font_size": 20}, word_wrap=True)
+    ui.Spacer(height=10)
+
+    # ── Joint torques ─────────────────────────────────────────────────────
+    ui.Label("Torques", style={"font_size": 20, "color": 0xFFAAAAAA})
+    lbl = ui.Label("", style={"font_size": 20}, word_wrap=True)
+    env_labels.append(lbl)
+    ui.Spacer(height=6)
+
+
+def _format_penalties(was_reset: bool) -> str:
+    lines = []
+    for name in penalty_names:
+        current = reward_manager._episode_sums[name][0].item()
+        if was_reset:
+            step_val = 0.0
+            prev_ep_sums[name] = 0.0
+        else:
+            step_val = current - prev_ep_sums[name]
+            prev_ep_sums[name] = current
+        lines.append(
+            f"  {name:<{max_penalty_name_len}}  {step_val:+.4f} ({current:+.3f})"
         )
-        lbl = ui.Label(
-            "",
-            style={"font_size": 20},
-            word_wrap=True,
-        )
-        env_labels.append(lbl)
-        ui.Spacer(height=6)
+    return "\n".join(lines)
+
+
+def _format_knee_bend(env_idx: int) -> str:
+    pos = robot.data.joint_pos[env_idx]
+    lines = []
+    for name, idx in zip(knee_names, knee_indices):
+        deg = pos[idx].item() * RAD_TO_DEG
+        lines.append(f"  {name:<{max_name_len}}  {deg:+6.1f}°")
+    return "\n".join(lines)
 
 
 def _format_torques(env_idx: int) -> str:
@@ -123,6 +165,7 @@ UI_UPDATE_EVERY = max(1, round(0.1 / dt))
 
 obs = env.get_observations()
 step = 0
+episode_reset = False
 
 while simulation_app.is_running():
     t0 = time.time()
@@ -131,10 +174,16 @@ while simulation_app.is_running():
         obs, _, dones, _ = env.step(actions)
         policy_module.reset(dones)
 
+    if dones[0]:
+        episode_reset = True
+
     step += 1
     if step % UI_UPDATE_EVERY == 0:
+        penalty_label.text = _format_penalties(episode_reset)
+        knee_label.text = _format_knee_bend(0)
         for i, lbl in enumerate(env_labels):
             lbl.text = _format_torques(i)
+        episode_reset = False
 
     if args_cli.real_time or args_cli.speed != 1.0:
         sleep = (dt / args_cli.speed) - (time.time() - t0)

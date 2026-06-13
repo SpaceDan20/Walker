@@ -185,6 +185,16 @@ class H1BalanceRewardsCfg:
         },
     )
 
+    # Knee excess bend penalty
+    knee_bend_penalty = RewTerm(
+        func=custom_rewards.knee_excess_bend_l2,
+        weight=-0.1,
+        params={
+            "threshold_deg": 30.0,
+            "asset_cfg": SceneEntityCfg("robot", joint_names=[".*_knee"]),
+        },
+    )
+
     # Penalize large actions and jerky action changes
     action_l2 = RewTerm(func=mdp.action_l2, weight=-0.01)
     action_rate_l2 = RewTerm(func=mdp.action_rate_l2, weight=-0.01)
