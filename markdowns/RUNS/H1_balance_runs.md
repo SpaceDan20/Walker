@@ -248,3 +248,72 @@ The H1s are very close to the stable, human-like balancing behavior we are looki
 The H1s learned to keep their legs relatively straight, but at the cost of falling over backwards. The new knee_bend penalty was minimized to nearly 0 up until about i420. At about that iteration, the policy really started to ignore all of the penalties. This is because they learned the same crouch-like stance from last run by ~i500, which extended their average episode length by 2x. Mean reward did drop, however.
 
 Around ~i700, the H1s started to minimize penalties again, attempting to return to the same magnitudes as earlier iterations (200-300). In particular, they stopped crouching and started keeping their legs straight once more. This, unfortunately, led to worsening balance, and the episode length declined to even worse levels than before (~100 --> ~80-90).
+
+## Run 019
+
+### Hypothesis:
+
+The H1s did take the new knee_bend penalty into account, but vaguely. When it comes to the other penalties, the knee_bend penalty is hardly weighted. At its worst, the penalty (per step) racks up in the tens of thousandths (-0.0001), whereas the other penalties live in the thousandths range (-0.001). By upping the knee_bend penalty by x10, the policy will weigh it the same as the other penalties.
+
+Also, the torso_drift penalty appears to be weighted too much. It is the only penalty that dropped out to -0.01 per step when the policy temporarily quit minimizing its penalties. This was also the time where episode length was at its highest point. By reducing the torso_drift penalty, the policy can focus more on minimizing other penalties and allow for more liberal movement of the torso to balance.
+
+### Changes:
+
+- x10 knee_bend penalty from -0.1 --> -1.0
+- -x2 torso_drift penalty from -0.1 --> -0.05
+
+### Result:
+
+The H1s followed roughly the same learning curves as the previous runs (runs 15-18). Same policy collapse around halfway through the training (~i400-500), and roughly the same metrics overall.
+
+## Run 020
+
+### Hypothesis:
+
+The reward landscape needs more work. The first major misstep I can spot would be the staying_alive versus is_terminated rewards. In the past few runs, the policy has collapsed when the staying_alive reward starts to grow substantially. For the training and physics setup, a maximum episode length is 1000 decision steps. At the current weight of 0.05, the staying_alive reward can accumulate a +50.0 signal. This greatly exceeds the one-time is_terminated penalty of -10.0. I had learned about the importance of these two magnitudes around runs 12-13, but I neglected to do the math necessary to make sure that (is_terminated > staying_alive x max_episode_length). Fixing that alone may cause the policy to not collapse halfway through training.
+
+### Changes:
+
+- -x10 staying_alive reward from 0.05 --> 0.005
+
+### Result:
+
+The H1s learned to vaguely balance, but not optimally. The policy took a bit longer to "collapse", leading the H1s to steady, in-place balancing until ~i600. At i600, the H1s began ignoring penalties to stay upright for longer. They developed a walking behavior once more, where they would drift far away from their origin to remain upright. They mostly ignored the torso_drift penalty, by a large margin. Despite mean_reward declining in this period, episode_length similarly rose. Eventually, the policy took penalties back into account.
+
+Most interestingly in this run, by i999, the H1s captured a mixed behavior of the early and middle iterations. The H1s learned to mainly stay in place, and when they started losing balance, they would shuffle their feet slightly opposed to outright walking forward. This reduced the torso_drift penalty, as it kept them moderately balanced while keeping their origin closer.
+
+Despite this, the H1s did not achieve meaningful balance in the 1000 iterations.
+
+## Run 021
+
+### Hypothesis:
+
+Until now, I have not put enough thought into the reward magnitudes of this config. The earlier runs were moreso a learning experience of mdp's built-in rewards, as well as how rewards are built inside of IsaacLab. Now that I have a better grasp of that, I need to logically restructure my reward magnitude landscape, as the current magnitudes are suboptimal.
+
+Restructuring the reward landscape by working backwards is the best bet to enhancing this task. I must first determine what a "perfect" episode, as well as "decent", "suboptimal", and "horrible" episodes look like. The magnitudes matter in this regard. Currently, every reward in the config run at roughly the same scales (~0.001 for the shaped rewards).
+
+Firstly, the H1s don't have nearly enough of a signal from either staying_alive or is_terminated. is_terminated is greater than staying_alive x max_steps, but staying_alive is not nearly meaningful enough. At 0.005 reward per step, the staying_alive reward only rewards a max of 5 for a fully survived episode. I will start by upping this max to 20 (0.02 per step). The is_terminated penalty needs to be greater than this, so I will increase it to be higher as well (-30 for a fall). -30 is a large enough penalty to substantially discourage falls.
+
+The shaped penalties were also too strong in the previous config, but the staying_alive and is_terminated magnitude changes do bring them closer to the gentle gradient signal they need to be. I will still decrease the penalties to more appropriate, gentler signals in the thousandths range. With 7 shaped penalties accumulating reward together, even penalties in the -0.002 per step range may be too high. -0.0015 to -0.002 should be a good starting point, though.
+
+### Changes:
+
+- Greatly increased the staying_alive reward from 0.005 (5.0 max) --> 0.02 (20.0 max)
+- Greatly increased the is_terminated penalty from -10.0 --> -30.0
+- Decreased shaped penalties from -0.1 and -0.01 to the -0.0015 to -0.002 range (1.5 to 2.0 maximums)
+
+### Result:
+
+I may be closer to my dancing project than I once thought. This run was drastically different than any of the other runs, by a long shot. Somehow, throughout the 1000 iterations, the H1s developed as many as 4 or 5 unique strategies to balance. The run was looking pretty healthy up until halfway through, where the policy began to collapse. After it collapsed, many interesting behaviors replaced the previously good balancing strategy. As a summary:
+
+i1 - i500: The H1s learned to balance reliably, bringing episode termination by falls all the way down to 5% (95% stochastic survival rate). Unfortunately, they did so by utilizing a wide, crouch-like stance (not the goal). Either way, it only took them 200 iterations to reliably balance this way.
+
+i500-700: Policy begins to collapse. The H1s continued their crouching approach, but they began leaning their bodies too much. Penalties started to accumulate substantially, dropping mean_reward from ~-1 to -4 by i700.
+
+i700: Policy collapse. The H1s still crouched, but they developed a strategy of leaning their torsos completely back (horizontal to the ground) and using their bent legs to hop backwards. This led to incredible origin-drifting behavior, where the H1s ended up very, very far away from where they started (obviously not ideal, this is not a travelling task!)
+
+i800: A dark force has awakening inside of the H1s. They finally got away from the leaning backward strategy, instead developing a new strategy where they raise their left arms in a controversial manner. The crouching improved, but they retained a wide stance.
+
+i999: I'm not sure what you would call this. The wide-legged stance remained, crouching still wasn't bad, but the upper body had an interesting approach. The H1s appeared to return from the dark side, instead raising a bent left arm. As for their right arms, they had them slightly tucked down behind their torso, with their elbows bent and their forearms raised upward. Their torsos were ever-so-slightly bent and twisted.
+
+This is probably the most interesting policy collapse I've witnessed so far. It will take some more in-depth research to understand just what happened, and how the gradient signals took hold of this run.

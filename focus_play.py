@@ -52,7 +52,7 @@ from isaaclab_tasks.utils.parse_cfg import load_cfg_from_registry
 
 agent_cfg = H1BalancePPORunnerCfg()
 
-env_cfg = load_cfg_from_registry("Isaac-Balance-H1-DeepPlay-v0", "env_cfg_entry_point")
+env_cfg = load_cfg_from_registry("Isaac-Balance-H1-FocusPlay-v0", "env_cfg_entry_point")
 env_cfg.sim.device = (
     args_cli.device if args_cli.device is not None else env_cfg.sim.device
 )
@@ -67,7 +67,7 @@ print(f"[INFO] Loading checkpoint: {checkpoint_path}")
 
 # ── Environment ───────────────────────────────────────────────────────────────
 
-env = gym.make("Isaac-Balance-H1-DeepPlay-v0", cfg=env_cfg)
+env = gym.make("Isaac-Balance-H1-FocusPlay-v0", cfg=env_cfg)
 env = RslRlVecEnvWrapper(env, clip_actions=agent_cfg.clip_actions)
 
 num_envs = env.unwrapped.num_envs

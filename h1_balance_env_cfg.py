@@ -156,21 +156,19 @@ class H1BalanceEventCfg:
 @configclass
 class H1BalanceRewardsCfg:
     # Positive reward for each step the robot remains alive (not fallen)
-    staying_alive = RewTerm(func=mdp.is_alive, weight=0.05)
+    staying_alive = RewTerm(func=mdp.is_alive, weight=0.02)
 
     # -1.0 discrete penalty when the episode terminates due to a fall
-    termination_penalty = RewTerm(func=mdp.is_terminated, weight=-10.0)
+    termination_penalty = RewTerm(func=mdp.is_terminated, weight=-30.0)
 
-    # Custom torso drifting penalty
-    torso_drift_penalty = RewTerm(func=custom_rewards.torso_drift_l2, weight=-0.1)
-
-    # Z-axis penalty (discourage jumping)
-    vertical_penalty = RewTerm(func=mdp.lin_vel_z_l2, weight=-0.1)
-
-    # Upper-body velocity penalty (torso + arms only — excludes hips, knees, ankles)
+    # Shaped penalties
+    vertical_penalty = RewTerm(func=mdp.lin_vel_z_l2, weight=-0.002)
+    orientation_penalty = RewTerm(func=mdp.flat_orientation_l2, weight=-0.002)
+    action_l2 = RewTerm(func=mdp.action_l2, weight=-0.0015)
+    action_rate_l2 = RewTerm(func=mdp.action_rate_l2, weight=-0.0015)
     upper_body_vel_penalty = RewTerm(
         func=mdp.joint_vel_l1,
-        weight=-0.01,
+        weight=-0.002,
         params={
             "asset_cfg": SceneEntityCfg(
                 "robot",
@@ -185,22 +183,16 @@ class H1BalanceRewardsCfg:
         },
     )
 
-    # Knee excess bend penalty
+    # Custom shaped penalties from rewards.py
+    torso_drift_penalty = RewTerm(func=custom_rewards.torso_drift_l2, weight=-0.002)
     knee_bend_penalty = RewTerm(
         func=custom_rewards.knee_excess_bend_l2,
-        weight=-0.1,
+        weight=-1.0,
         params={
             "threshold_deg": 30.0,
             "asset_cfg": SceneEntityCfg("robot", joint_names=[".*_knee"]),
         },
     )
-
-    # Penalize large actions and jerky action changes
-    action_l2 = RewTerm(func=mdp.action_l2, weight=-0.01)
-    action_rate_l2 = RewTerm(func=mdp.action_rate_l2, weight=-0.01)
-
-    # Penalize non-flat orientation
-    orientation_penalty = RewTerm(func=mdp.flat_orientation_l2, weight=-0.1)
 
     # -------------------- Potential rewards ---------------------------------
 
@@ -273,11 +265,11 @@ class H1BalanceEnvCfg_PLAY(H1BalanceEnvCfg):
 
 
 @configclass
-class H1BalanceEnvCfg_DEEP_PLAY(H1BalanceEnvCfg):
-    # Config for deep play: 4 envs with live joint torque visualization panel
+class H1BalanceEnvCfg_FOCUS_PLAY(H1BalanceEnvCfg):
+    # Config for focus play: 1 env with live joint torque and reward accumulation visualization panel
     def __post_init__(self):
         super().__post_init__()
-        self.scene.num_envs = 4
+        self.scene.num_envs = 1
         self.scene.env_spacing = 2.5
         self.episode_length_s = 40.0
-        self.observations.policy.enable_corruption = False
+        self.observations.policy.enable_corruption = True

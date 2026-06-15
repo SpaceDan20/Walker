@@ -59,3 +59,24 @@ An L2 norm is preferable in the case where a threshold and clip is given, since 
 ## Run 018:
 
 Each run has a params folder set by the policy (RSL-RL in our case) with a few yamls inside. The tensorboard metrics from run 16 & 18 perfectly match because the same seed was used in both yamls (seed=42). If I wanted variation in a run, I would change the seed before starting it. Using a seed means the training is deterministic, which is the preferred way of training due to its advantages in reproducability and ablation (testing different reward configs with the same seed to verify that the reward config is the determining variably). Deterministic training also means that I can test a policy for robustness by training a few runs with different seeds (run 19 could be seed 43, run 20 could be seed 44, etc.).
+
+## Run 019:
+
+Reward shaping is, by far, the most important thing when it comes to RL learning. Overtime, I have learned just how much the reward config can make or break a policy. Up until now, I haven't given reward structuring enough thought. I learned early on that there is no specific formula that plugs into the whole reward landscape, and that even the most renowned RL researchers experiment with hand-crafted reward configs. There are, however, good practices to take into account when designing a reward landscape. It is best to work backward when designing a reward, so I would:
+
+- First, find out what a perfect episode should look like magnitudally (is that a word? it is now). For instance, I could say that a perfect episode for balance should accure a roughly +20 reward.
+- Next, the actual 'reward's. This would be just the staying_alive reward. I would determine how much it should influence the landscape. Ideally, the staying_alive reward would be doing the brunt of the work, so we'll say +15 maximally.
+- Then, we have to determine the magnitude of staying_alive's evil twin, is_terminated. is_terminated should be more than the staying_alive reward x max_steps so that falling over feels consequential instead of slightly annoying. In this case, is_terminated could be -20 since (20 > 15). I am so good at math.
+- Finally, penalty weights must be determined. The penalties should be prevalant but not overpowering the staying_alive and is_terminated rewards. Their meaning is to give the policy a gradient signal to follow, that's it. So the penalties must be weighted as a sum, appropriately. In this example, we could determine that all of the penalties should accumulate no more than -10.
+
+Using these magnitudes would be significantly better than blindly guessing what numbers would work in the landscape. Following this general 'formula' is the best way to making a healthy reward config that works.
+
+## Run 021:
+
+Watching replay (.pt) files and analyzing TensorBoard metrics are essentially just the floor of true RL research. These two, especially with my custom focus_play script, have been informative of my design choices, but they are simplistic in nature. The .pt files are full checkpoint files loaded with all of the information necessary to capture much more detailed data.
+
+A very useful diagram would be the phase portrait. A phase portrait is a 2D visualization of a trajectory(s). By plotting the sagittal plane (the humanoid's pitch) and the frontal plane (the humanoid's roll), I can further diagnose what trajectories the H1s are taking without having to visually inspect them. This allows for more precise diagnosis, as I can clearly visualize the phase portraits without the need of tracking a moving body. It will also help for later runs, where the H1 will inevitably show less and less notable movement as a good future policy stabilizes.
+
+Sensor noise (observation corruption in sim) is very consequential. The same checkpoint (run 21's model_500.pt) run with and without observation corruption yield very different results, despite both playbacks being deterministic (inference model). Running the .pt file with focus_play (currently no observation corruption) shows the H1 converging to an incredibly still, unmoving pose, with torques freezing to within the hundredths (knee joint torque freezing at ~68.73-68.74, for example). However, when playing the .pt file using play (with observation corruption), the H1s are much less stable and exhibit far greater motion overall.
+
+Policies are always run deterministically (at deployment). Stochastic sampling only happens during training, where the policy (PPO) uses a Gaussian distribution to sample actions. If it didn't, the policy would not be able to learn by exploration (picking random actions instead of the best guess early on). Once a policy is trained, deterministic inference is used because the best guess is desired over random actions.
