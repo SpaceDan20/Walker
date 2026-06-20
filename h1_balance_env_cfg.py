@@ -4,6 +4,7 @@ import isaaclab.sim as sim_utils
 import isaaclab.envs.mdp as mdp
 from isaaclab.assets import ArticulationCfg, AssetBaseCfg
 from isaaclab.envs import ManagerBasedRLEnvCfg
+from isaaclab.managers import CurriculumTermCfg as CurrTerm
 from isaaclab.managers import EventTermCfg as EventTerm
 from isaaclab.managers import ObservationGroupCfg as ObsGroup
 from isaaclab.managers import ObservationTermCfg as ObsTerm
@@ -18,6 +19,7 @@ from isaaclab.utils.assets import ISAACLAB_NUCLEUS_DIR
 from isaaclab.utils.noise import AdditiveUniformNoiseCfg as Unoise
 
 from isaaclab_assets import H1_MINIMAL_CFG  # isort: skip
+import curriculums as custom_curriculums  # isort: skip
 import rewards as custom_rewards  # isort: skip
 
 # ---------------------------------------------------------------------------
@@ -156,45 +158,48 @@ class H1BalanceEventCfg:
 @configclass
 class H1BalanceRewardsCfg:
     # Positive reward for each step the robot remains alive (not fallen)
-    staying_alive = RewTerm(func=mdp.is_alive, weight=0.02)
+    staying_alive = RewTerm(func=mdp.is_alive, weight=0.05)
 
-    # -1.0 discrete penalty when the episode terminates due to a fall
-    termination_penalty = RewTerm(func=mdp.is_terminated, weight=-30.0)
+    # Large discrete penalty when the episode terminates due to a fall
+    termination_penalty = RewTerm(func=mdp.is_terminated, weight=-100.0)
 
-    # Shaped penalties
+    # Built-in shaped penalties
+    joint_deviation_penalty = RewTerm(func=mdp.joint_deviation_l1, weight=-0.001)
+    orientation_penalty = RewTerm(func=mdp.flat_orientation_l2, weight=-0.12)
     vertical_penalty = RewTerm(func=mdp.lin_vel_z_l2, weight=-0.002)
-    orientation_penalty = RewTerm(func=mdp.flat_orientation_l2, weight=-0.002)
-    action_l2 = RewTerm(func=mdp.action_l2, weight=-0.0015)
-    action_rate_l2 = RewTerm(func=mdp.action_rate_l2, weight=-0.0015)
-    upper_body_vel_penalty = RewTerm(
-        func=mdp.joint_vel_l1,
-        weight=-0.002,
-        params={
-            "asset_cfg": SceneEntityCfg(
-                "robot",
-                joint_names=[
-                    "torso",
-                    ".*_shoulder_pitch",
-                    ".*_shoulder_roll",
-                    ".*_shoulder_yaw",
-                    ".*_elbow",
-                ],
-            ),
-        },
-    )
+    action_l2 = RewTerm(func=mdp.action_l2, weight=-0.000015)
+    action_rate_l2 = RewTerm(func=mdp.action_rate_l2, weight=-0.000015)
 
     # Custom shaped penalties from rewards.py
     torso_drift_penalty = RewTerm(func=custom_rewards.torso_drift_l2, weight=-0.002)
-    knee_bend_penalty = RewTerm(
-        func=custom_rewards.knee_excess_bend_l2,
-        weight=-1.0,
-        params={
-            "threshold_deg": 30.0,
-            "asset_cfg": SceneEntityCfg("robot", joint_names=[".*_knee"]),
-        },
-    )
 
-    # -------------------- Potential rewards ---------------------------------
+    # -------------------- Reward Scrapyard ---------------------------------
+
+    # knee_bend_penalty = RewTerm(
+    #     func=custom_rewards.knee_excess_bend_l2,
+    #     weight=-1.0,
+    #     params={
+    #         "threshold_deg": 30.0,
+    #         "asset_cfg": SceneEntityCfg("robot", joint_names=[".*_knee"]),
+    #     },
+    # )
+
+    # upper_body_vel_penalty = RewTerm(
+    #     func=mdp.joint_vel_l1,
+    #     weight=-0.0002,
+    #     params={
+    #         "asset_cfg": SceneEntityCfg(
+    #             "robot",
+    #             joint_names=[
+    #                 "torso",
+    #                 ".*_shoulder_pitch",
+    #                 ".*_shoulder_roll",
+    #                 ".*_shoulder_yaw",
+    #                 ".*_elbow",
+    #             ],
+    #         ),
+    #     },
+    # )
 
     # # Penalize angular velocity / tilt changes — encourages smoother balancing corrections
     # tilt_pitch_penalty = RewTerm(func=mdp.ang_vel_xy_l2, weight=-0.05)
@@ -207,6 +212,33 @@ class H1BalanceRewardsCfg:
     #         "asset_cfg": SceneEntityCfg("robot", joint_names=[".*_ankle"]),
     #     },
     # )
+
+
+# ---------------------------------------------------------------------------
+# Curriculum
+# ---------------------------------------------------------------------------
+
+
+@configclass
+class H1BalanceCurriculumCfg:
+    # Shaped penalties start at `scale` × their configured weight and are
+    # promoted to 100% once survival rate >= threshold over `window` episodes.
+    shaped_penalties = CurrTerm(
+        func=custom_curriculums.survival_rate_reward_weights,
+        params={
+            "terms": [
+                "joint_deviation_penalty",
+                "orientation_penalty",
+                "vertical_penalty",
+                "action_l2",
+                "action_rate_l2",
+                "torso_drift_penalty",
+            ],
+            "scale": 0.05,  # start at 5% of each term's configured weight
+            "threshold": 0.95,  # 95% survival rate required to promote
+            "window": 500,  # rolling window of completed episodes
+        },
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -241,6 +273,7 @@ class H1BalanceEnvCfg(ManagerBasedRLEnvCfg):
     rewards: H1BalanceRewardsCfg = H1BalanceRewardsCfg()
     terminations: H1BalanceTerminationsCfg = H1BalanceTerminationsCfg()
     events: H1BalanceEventCfg = H1BalanceEventCfg()
+    curriculum: H1BalanceCurriculumCfg = H1BalanceCurriculumCfg()
 
     def __post_init__(self):
         self.decimation = 4  # policy acts every 4 physics steps (50hz) (200hz / 4)

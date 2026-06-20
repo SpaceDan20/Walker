@@ -317,3 +317,110 @@ i800: A dark force has awakening inside of the H1s. They finally got away from t
 i999: I'm not sure what you would call this. The wide-legged stance remained, crouching still wasn't bad, but the upper body had an interesting approach. The H1s appeared to return from the dark side, instead raising a bent left arm. As for their right arms, they had them slightly tucked down behind their torso, with their elbows bent and their forearms raised upward. Their torsos were ever-so-slightly bent and twisted.
 
 This is probably the most interesting policy collapse I've witnessed so far. It will take some more in-depth research to understand just what happened, and how the gradient signals took hold of this run.
+
+## Run 022
+
+### Hypothesis:
+
+The reward magnitude changes certainly took effect. staying_alive and is_terminated are regarded very strongly in the policy, collapse or not. While these may need to be tuned down, it makes sense to first fix the shaped penalty magnitudes. Setting all of the shaped penalties from -0.0015 to -0.002 doesn't work when some of the penalties trigger almost all of the time while some trigger infrequently. To start out, it would be reasonable to reduce the action penalties since they dominated the shaped penalty signal, and the H1s need to be unafraid to move for the sake of balance. Also, arguably one of the most important shaped penalties available (flat_orientation) is currently underutilized, not even clocking in -0.001 per step. Increasing this penalty should help the overall gradient signal.
+
+### Changes:
+
+- Greatly reduced (-x10) action and action rate penalties from -0.0015 to -0.00015
+- Greatly increased (x10) orientation penalty from -0.002 to -0.02
+
+### Result:
+
+The policy did not collapse this time. It moreso morphed its undesired behaviors into different undesired behaviors. The undesired behaviors followed a vague trend: wide-legged stance --> slight crouch --> raised arms --> twisted torso --> twisted arms. Throughout the run, the H1s struggled to stay near their origin points as well. The major improvement would probably be the smoother metrics and the fact that the H1s simply plateued at an ~80% survival rate instead of rising to 95% before intensely dropping out twice later in training.
+
+## Run 023
+
+### Hypothesis:
+
+First, we must address the origin drifting behavior. Despite falling over, this may be the single biggest undesired behavior. Using a wide-legged stance to balance? Understandable. Raising arms to do so? Sure. Leaping backward across the map? Where are you going?! There are currently two shaped penalties contributing the most to stop the origin drifting behavior: the torso_drift penalty and the upper_body_vel_penalty (vaguely). The current torso_drift penalty is meaningful, but not when it is stacked up against the action penalties. Despite being nerfed in the last run, the action penalties are still contributing largely to the gradient signal. The action penalty alone is accumulating up to -0.04 reward per step toward later in the training. I've learned that the action penalties, which can be labelled as 'efficiency' penalties, should be weighed much less than goal-oriented penalties like torso_drift or flat_orientation. By once again nerfing the action penalties, we should see the policy take these goal-oriented penalties into account more effectively.
+
+Also, the relationship between arguably some of the most important shaped penalties should be addressed. Currently, the upper body velocity penalty dominates early training iterations. torso_drift does catch up, but it takes some time, and flat_orientation doesn't hold a candle to either. Ideally, the main driver should be torso_drift (to stop origin drift), secondary should be flat_orientation (to promote balance), and the last should be upper body velocity penalty, as it is moreso an efficiency penalty. This weighing should capture more meaningful behaviors while discouraging undesired ones.
+
+### Changes:
+
+- Greatly reduced action and action rate penalties from -0.00015 to -0.000015
+- Slightly increased torso_drift penalty from -0.002 to -0.0025
+- Greatly increased flat_orientation penalty from -0.02 to -0.1
+- Greatly reduced upper_body_vel penalty from -0.002 to -0.0005
+
+### Result:
+
+As with the previous runs, some undesired behaviors inevitably showed up. Mainly wide-legged stance and slight crouching, but we aren't penalizing for that just yet. The H1s only managed to achieve a ~65% survival rate in the 1000 iterations. Despite it being more stable than previous runs (staying firmly between the 60-80% bars), this is not an ideal survival rate. On a more positive note, the shaped penalties rebalancing did take "shape". Sorry. The action penalties are no longer dominating the signal, allowing torso_drift to shine.
+
+Vaguely. I have new origin drifting graphs to go off of, and the trend isn't great. i200 is a good starting point, where H1s started getting good at surviving. Between i200 and i300, the H1s drifting behavior improved drastically -- down from 5m average horizontal drift to 0.6-0.8m. i400, it increased to ~1.2. i500 ... back to 5m. i600 to i900, the H1s started to explore the world, with drifts increasing to 10m+. The last iteration, i999, showed improvement, back down to 4, but the policy still clearly had an interest for exploring the world.
+
+## Run 024
+
+### Hypothesis:
+
+I think the biggest issue of the last run was the termination rate. The H1s started to get a relatively strong gradient signal from the shaped penalties before they could achieve 80%+ survival rates. The policy started minimizing these penalties at a 65%-70% survival rate. This is suboptimal. The is_terminated penalty needs an increase so the H1s first learn how to survive, ideally, at least 90-95% of the time. Only then should the shaped gradients be strong enough to encourage minimization. As for the origin drifting behavior, the shaped penalties may need more tweaking. We must first get the survival rate back up to 95%+, even if it means the H1s explore the world temporarily. In the meantime, reducing the still-too-powerful upper body velocity penalty will strengthen the overall shaped penalties gradient.
+
+### Changes:
+
+- Greatly increased is_terminated penalty from -30.0 to -75.0
+- Moderately increased staying_alive reward from 0.02 to 0.025
+- Greatly reduced upper body velocity penalty from -0.0005 to -0.0002
+
+### Result:
+
+The H1s are definitely still coming up with interesting strategies to keep balanced. The behavior from the last iteration (i999) can best be described as someone who has to pee while they simultaneously cough into their arm. It is a very strange pose. Either way, the H1s stagnated at about 75%, which is when the gradient signal started getting messy. They never fully learned to survive, and they never learned a stable, still balancing behavior. They still have wide-legged stances, they still crouch, they still drift away from their origin points, and they still do weird stuff with their arms.
+
+## Run 025
+
+### Hypothesis:
+
+Simple reward magnitude tweaking won't fix this behavior. i400 of the last run was the most stable checkpoint, and even then the H1s were drifting and demonstrating undesired behaviors. Instead, a more generalized return of a shaped penalty I took out, joint_deviation_l1, should directly target this problem. With its addition, the upper body velocity and knee bend penalties aren't all that necessary anymore. Removing them will allow more room for the other shaped penalties to breathe, especially this new joint deviation one. The key is to implement it in a healthier shaped penalty field. With its addition, and some shaped penalty tweaks, the H1s should stop: crouching with a wide-legged stance, origin drifting, and making unnecessary upper body movements.
+
+### Changes:
+
+- Added joint_deviation_l1 penalty with weight -0.001
+- Removed upper_body_vel penalty
+- Removed knee_bend penalty
+- Increased is_terminated penalty from -75.0 to -100.0
+- Increased staying_alive reward from 0.025 to 0.05 (50.0 max)
+- Decreased torso_drift penalty from -0.0025 to -0.002
+- Increased orientation penalty from -0.1 to -0.12
+
+### Result:
+
+The H1s are rebellious. They kept on crouching, they kept on with their wide-legged stance, they kept on drifting from their origin, and they kept on making unnecessary upper body movements. However, there still were improvements. They drifted less, they tilted less, and they rolled about the same yet more stable. They did not manage to get reliably above 70% survival rates, though.
+
+## Run 026
+
+### Hypothesis:
+
+There are many issues to overcome. The main issue would be the suboptimal survival rates later in training. The H1s learn to survive pretty quickly, but their survival rates start to plateu at a suboptimal 60-70%. This is due to the shaped penalty gradient signals appearing much larger once the massive termination rate weakens from survival. Essentially, the H1s are trying to optimize their shaped penalties before adequately getting a reliable 95%+ survival rate.
+
+Most approaches to solving this problem incorporate some kind of curriculum, allowing the robot to learn concepts one at a time by usually balancing weights. This would be done by starting off with extremely low shaped penalties, then ramping them up later in training once the H1s can survive.
+
+However, I'd like to try something different first. Before implementing a curriculum, I am going to try rebalancing the penalties to the extremes. I will let the H1s train with an enormous termination penalty and microscopic shaped penalties, just to see what happens. The staying_alive reward will also accompany these microscopic penalties, to a slightly higher degree for influence. This approach should develop unique behavior, whether or not it is ideal.
+
+### Changes:
+
+- Increased termination penalty from -100 to -100,000,000
+- Decreased staying_alive reward from 0.05 to 0.025
+
+### Result:
+
+Flatline. The outrageous termination penalty completely decimated any attempts at learning. Setting the termination penalty to -100,000,000 led to the early critic, with its initial weights close to 0, struggling to fit the scalar value. The value function loss exploded in the quadrillions, only coming down to the billions after ~300 iterations. This is where is flattened out, unable to fit the enormous termination penalty adequately.
+
+## Run 027
+
+### Hypothesis:
+
+While it has been fun tweaking rewards and their respective magnitudes, the only real way to solve this plateuing survival rate problem is a curriculum. By incorporating a curriculum that scales down shaped penalties until a certain point (in our case: survival rate), the H1s can focus on surviving meaningfully before minimizing the shaped penalties. This should lead to a more natural advancement: learn not to fall --> learn to survive --> learn to balance.
+
+### Changes:
+
+- Added a custom reward weight curriculum that scales shaped penalties down to 5% until 95% survival rate can be reliably achieved.
+- Brought termination penalty back to Earth (-100)
+- Increased staying_alive reward back to 0.05
+
+### Result:
+
+Analyzing...

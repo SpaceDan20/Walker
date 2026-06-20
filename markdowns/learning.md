@@ -80,3 +80,17 @@ A very useful diagram would be the phase portrait. A phase portrait is a 2D visu
 Sensor noise (observation corruption in sim) is very consequential. The same checkpoint (run 21's model_500.pt) run with and without observation corruption yield very different results, despite both playbacks being deterministic (inference model). Running the .pt file with focus_play (currently no observation corruption) shows the H1 converging to an incredibly still, unmoving pose, with torques freezing to within the hundredths (knee joint torque freezing at ~68.73-68.74, for example). However, when playing the .pt file using play (with observation corruption), the H1s are much less stable and exhibit far greater motion overall.
 
 Policies are always run deterministically (at deployment). Stochastic sampling only happens during training, where the policy (PPO) uses a Gaussian distribution to sample actions. If it didn't, the policy would not be able to learn by exploration (picking random actions instead of the best guess early on). Once a policy is trained, deterministic inference is used because the best guess is desired over random actions.
+
+## Run 022:
+
+Shaped penalties come in all shapes and sizes, and they hold meaningfully different purposes. These should be taken into consideration when determining the weights. Ideally, the shaped penalties are led by more purpose-driven penalties, such as flat_orientation for a stability task. Meanwhile, more efficiency-based penalties like action and torque penalties should be weighed less. This creates a soft curriculum effect, where the policy will more likely minimize the purpose-driven penalties first. Once these penalties are taken into account, hopefully teaching the agent the intended behavior, then it can start focusing on the less important, yet still helpful penalties.
+
+## Run 025:
+
+When it comes to humanoids, and humanoid locomotion training, curriculums are the norm, not an exception. The right framing around curriculums isn't whether or not to include one - it is which form of curriculum would be best suited for the task.
+
+## Run 026:
+
+The value function loss is heavily influenced by the magnitudes of rewards and penalties. The critic (value network) has the singular job of predicting, from a current state, what the total amount of accumulated reward for the rest of the episode will be. The value function loss is the MSE (mean squared error) of (the actual calculated value of the decision step - the critic's prediction). Early on, when the critic hasn't learned anything, it typically outputs values close to 0. This means that the MSE for massive rewards/penalties is enormous. For my experiment of setting the termination penalty to -100,000,000, this generated value function losses in the quadrillions since the outcome was (~-100,000,000 - 0)² ≈ 10,000,000,000,000,000.
+
+PPO uses an Actor-Critic framework. The actor and critic are seperate networks with different objectives. The actor acts on the environment and the critic predicts rewards given the current state. The critic

@@ -28,7 +28,9 @@ import os
 import sys
 import time
 
+import carb.input
 import gymnasium as gym
+import omni.appwindow
 import torch
 from rsl_rl.runners import OnPolicyRunner
 
@@ -75,12 +77,42 @@ runner.load(checkpoint_path)
 policy = runner.get_inference_policy(device=env.unwrapped.device)
 policy_module = runner.alg.policy
 
+# ── Keyboard reset (R key) ────────────────────────────────────────────────────
+
+_force_reset = False
+
+
+def _on_key(event, *args, **kwargs):
+    global _force_reset
+    if (
+        event.type == carb.input.KeyboardEventType.KEY_PRESS
+        and event.input == carb.input.KeyboardInput.R
+    ):
+        _force_reset = True
+    return True
+
+
+_input = carb.input.acquire_input_interface()
+_keyboard = omni.appwindow.get_default_app_window().get_keyboard()
+_key_sub = _input.subscribe_to_keyboard_events(_keyboard, _on_key)
+
+print("[INFO] Press R to manually reset all environments.")
+
 # ── Inference loop ────────────────────────────────────────────────────────────
 
 dt = env.unwrapped.step_dt
 obs = env.get_observations()
 
 while simulation_app.is_running():
+    if _force_reset:
+        with torch.inference_mode():
+            obs, _ = env.reset()
+        policy_module.reset(
+            torch.ones(env.num_envs, dtype=torch.bool, device=env.unwrapped.device)
+        )
+        _force_reset = False
+        print("[INFO] Manual reset triggered.")
+
     t0 = time.time()
     with torch.inference_mode():
         actions = policy(obs)
