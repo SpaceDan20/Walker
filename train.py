@@ -38,7 +38,7 @@ import os
 
 import gymnasium as gym
 import torch
-from rsl_rl.runners import OnPolicyRunner
+from Walker.agents.runner import H1BalanceOnPolicyRunner as OnPolicyRunner
 
 from isaaclab.envs import ManagerBasedRLEnvCfg
 from isaaclab.utils.io import dump_yaml

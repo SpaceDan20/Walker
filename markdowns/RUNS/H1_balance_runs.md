@@ -423,4 +423,77 @@ While it has been fun tweaking rewards and their respective magnitudes, the only
 
 ### Result:
 
-Analyzing...
+In the 1000 iterations, the H1s did not advance the curriculum. The survival rate climbed predictably until about ~60%, where it started to plateu. This happened around iteration 350, where the termination penalty (-100) started meeting with the staying_alive reward (+50) at ~0.04 reward/step. Between i350-1000, the policy did steadily climb from this 60% to ~75%. Overall, the H1s learned to balance, partially, but at the cost of the optimal behavior (still, non-moving balance).
+
+## Run 028
+
+### Hypothesis:
+
+Up until now, I have worked with the flawed reward magnitude logic of (is_termination penalty > maximum staying_alive reward). This was incorrectly interpreted by me. The logic I was provided was a basic reward magnitude guideline of (is_termination penalty > a single step of staying_alive reward). In practice, most policies implement a small is_termination penalty, whereas mine dominates the landscape. This causes the gradient signal to collapse once estimated returns approach zero (staying_alive reward catches up to the is_termation penalty). In the previous run, this was around a 60% survival rate. The survival rate then plateus as the critic network struggles to find the tiny gradient signal while the termination penalty keeps screaming in its ear.
+
+Although this doesn't fully stop the critic from learning, it slows it to a snail's pace. It took ~100 iterations for the survival rate to climb from 0 to 60%, but then another ~600 iterations for that 60 to reach 75%. So, it works, but it is incredibly inefficient. This would be like watching a baby start learning how to stand up within a few years, but then continuously fall over for 8 more. At some point, the parents might want to try a different strategy.
+
+Therefore, the H1s survival plateus should be fixed by simply reducing the termination penalty to a reasonable percentage of the overall reward landscape. The staying_alive reward must dominate, NOT the termination penalty.
+
+### Changes:
+
+- Dramatically reduced termination penalty from -100.0 --> -2.5
+
+### Result:
+
+Unfortunately, the ~60% survival rate plateu persists. The trajectories were similar to the previous run, absent the termination penalty. The H1s developed an interesting strategy that involved tucked arms, crouched bodies, and overall drift. They did not learn still, unmoving balance, but more importantly, they did not surpass an 80% survival rate in the 1k iterations.
+
+## Run 029
+
+### Hypothesis:
+
+There is one interesting tensorboard metric that needs to be addressed: Entropy Loss. For the past 7 runs (excluding the monstrous termination penalty experiment), the entropy loss has steadily risen throughout them. It initializes at 27 (roughly normal range for an H1 with 19 continuous joints) and rises to the 40s for each and every run. The last run was the worst offender, climbing to almost 50. The last time the entropy was relatively healthy (steady decline to small positives) was run 019, with run 016 being the last truly healthy entropy (did not fall into the negatives, suggesting overcommittal). These runs were chaotic and suboptimal (bad reward magnitudes, low to no survival rate achieved), but they are worth noting.
+
+I have yet to touch the entropy coefficient in my PPO config. It has sat at 0.01 for all 28 previous runs. Now, with a presumably healthy set of rewards with appropriate magnitudes, it is time to look into other discrepancies. It is very likely that this 0.01 coeff is far too high, encouraging much greater exploration than necessary. Reducing it should warrant a declining entropy as opposed to an unhealthy, forever-climbing one.
+
+### Changes:
+
+- Dramatically reduced entropy coeff from 0.01 --> 0.001
+
+### Result:
+
+Success! For the survival rate, at least. This is the first run that has acheived a stable, sustained 95%+ stochastic survival rate. The only other run that held a candle to this one was run 021, and that was just a brief 96% survival rate window before ultimate policy collapse. No other run has reached these heights. Most of the previous (more recent) runs have plateued between the 60-80% rates. Because of this success, the policy was able to advance the curriculum and begin minimizing penalties.
+
+Unfortunately, the intended behavior of still, unmoving balance was not yet achieved. The H1s still exhibited undesired behaviors such as crouching, using a wide-legged stance, bending arms in unusual ways, and jittering around too much. Despite these downfalls, this run is a huge leap forward toward stable balance. Now, we can focus our attention more on the shaped penalty landscape.
+
+## Run 030
+
+### Hypothesis:
+
+Lowering the entropy coeff helped clear the way for real learning to take place. However, there is still room for improvement. Lowering the coeff a little more should yield a healthier curve that approaches low positives quicker without overshooting.
+
+Along with a slightly lower entropy coeff, some reward tweaking can now be done to minimize the undesired behaviors. I believe the hierarchy of shaped rewards importance is as follows: staying_alive ---> joint deviation --> orientation --> torso_drift --> verticality --> action penalties. Currently, orientation is too low, torso_drift is too high, verticality is too invisible, and the action penalties as well as the joint deviation penalty could use a slight boost.
+
+Lastly, the curriculum advanced at a decent pace. However, upping the requirement for advancement from 95 to 97% should allow for a more stable transition.
+
+### Changes:
+
+- Reduced entropy coeff from 0.001 --> 0.0007
+- Tweaked shaped penalties
+- Increased curriculum advancement from 95 --> 97%
+- Increased iterations from 1000 --> 2000
+
+### Result:
+
+The H1s are really, really good at survival now. We are achieving 99% sustained survival rates towards the end of the 2k iterations. However, the undesired behaviors remain. In this run specifically, the H1s really abused a wide-legged stance and crouching. Their movements were not chaotic; their joints handled small corrections much better than previous runs. The main challenge now is the crouched, wide-legged stance.
+
+## Run 031
+
+### Hypothesis:
+
+We are getting closer to the goal. A lot of the kinks have been buffed out. This puppy should run real good, very soon. There is still some leeway to lower the entropy coeff, and still some reward tweaking to do. So far, I have handcrafted my rewards by eyeballing tensorboard metrics and viewing runs and charts. This is good, but I need a closer look at which terms are really contributing to the overall gradient signal. For this, I have added a custom tensorboard metric which tracks mean and std per term. When a reward term reaches high mean and low std, it is not contributing much of a gradient. The opposite is true for low mean and high std. With this new metric, I can more clearly see which terms are being "seen" by the policy at what points, which will lead to better decision making when it comes to magnitude adjustments.
+
+### Changes:
+
+- Added new tensorboard metric to view mean and std for reward terms
+- Reduced entropy coeff from 0.0007 --> 0.0005
+- Slightly reduced torso_drift penalty
+
+### Result:
+
+On a good note, the entropy coeff is looking very healthy now, and the new tensorboard metric is pretty useful. I am able to see that the staying_alive reward continued to contribute meaningfully to the overall gradient (50%+ throughout the run, with a few dips), which means that survival was never truly optimized. However, it did hover at 95%+ survival rates for an extended period of time. Unfortunately, survival started weening off at the end as the H1s began losing balance and falling backward. To top things off, it was not ideal balance anyway. Same wide stance. Same crouching.

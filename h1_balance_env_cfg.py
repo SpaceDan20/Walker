@@ -160,18 +160,18 @@ class H1BalanceRewardsCfg:
     # Positive reward for each step the robot remains alive (not fallen)
     staying_alive = RewTerm(func=mdp.is_alive, weight=0.05)
 
-    # Large discrete penalty when the episode terminates due to a fall
-    termination_penalty = RewTerm(func=mdp.is_terminated, weight=-100.0)
+    # Discrete penalty when the episode terminates due to a fall
+    termination_penalty = RewTerm(func=mdp.is_terminated, weight=-2.5)
 
     # Built-in shaped penalties
-    joint_deviation_penalty = RewTerm(func=mdp.joint_deviation_l1, weight=-0.001)
-    orientation_penalty = RewTerm(func=mdp.flat_orientation_l2, weight=-0.12)
-    vertical_penalty = RewTerm(func=mdp.lin_vel_z_l2, weight=-0.002)
-    action_l2 = RewTerm(func=mdp.action_l2, weight=-0.000015)
-    action_rate_l2 = RewTerm(func=mdp.action_rate_l2, weight=-0.000015)
+    joint_deviation_penalty = RewTerm(func=mdp.joint_deviation_l1, weight=-0.0012)
+    orientation_penalty = RewTerm(func=mdp.flat_orientation_l2, weight=-0.25)
+    vertical_penalty = RewTerm(func=mdp.lin_vel_z_l2, weight=-0.01)
+    action_l2 = RewTerm(func=mdp.action_l2, weight=-0.000017)
+    action_rate_l2 = RewTerm(func=mdp.action_rate_l2, weight=-0.000017)
 
     # Custom shaped penalties from rewards.py
-    torso_drift_penalty = RewTerm(func=custom_rewards.torso_drift_l2, weight=-0.002)
+    torso_drift_penalty = RewTerm(func=custom_rewards.torso_drift_l2, weight=-0.0012)
 
     # -------------------- Reward Scrapyard ---------------------------------
 
@@ -235,7 +235,7 @@ class H1BalanceCurriculumCfg:
                 "torso_drift_penalty",
             ],
             "scale": 0.05,  # start at 5% of each term's configured weight
-            "threshold": 0.95,  # 95% survival rate required to promote
+            "threshold": 0.97,  # 97% survival rate required to promote
             "window": 500,  # rolling window of completed episodes
         },
     )

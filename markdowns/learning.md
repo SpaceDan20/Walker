@@ -30,7 +30,7 @@ I've learned that N.m stands for Newton-Meters, a form of torque measurement. I'
 
 I've learned that torques can be shown as either negative or positive, depending on how the motor orients the "positive" direction. So for a knee joint, a motor trying to extend the knee may be +40 N.m, and if it were bending it backwards, -40 N.m.
 
-I've started to learn about PD (Proportional-derivitive) controllers. Robots like the H1 have a PD controller over a PID (-I-ntegral included) controller because their movements and actions are far too quick for an integral to matter. The integral is too slow, and it would likely lead to worsening the error for a fast-moving robot.
+I've started to learn about PD (Proportional-derivitive) controllers. Robots like the H1 have a PD controller over a PID (-I-ntegral included) controller because their movements and actions are far too quick for an integral to matter. The integral accumulates over time, so if a robot joint overshoots or gets perturbed, the integral would overreact and cause instability. The policy itself takes over for the integral, effectively learning how to correct errors throughout an episode.
 
 The PD controller sits between the policy and the motor drivers. The PD controller is fed by the policy, and it runs at a much faster pace to keep up with robot actions.
 
@@ -54,7 +54,7 @@ PPO outputs a probability distribution. For continuous control of robot joints l
 
 ## Run 016:
 
-An L2 norm is preferable in the case where a threshold and clip is given, since it can exponentially penalize an undesired behavior the further it goes past the threshold.
+An L2 norm is preferable in the case where a threshold and clip is given, since it can _quadratically_ penalize an undesired behavior the further it goes past the threshold.
 
 ## Run 018:
 
@@ -66,7 +66,7 @@ Reward shaping is, by far, the most important thing when it comes to RL learning
 
 - First, find out what a perfect episode should look like magnitudally (is that a word? it is now). For instance, I could say that a perfect episode for balance should accure a roughly +20 reward.
 - Next, the actual 'reward's. This would be just the staying_alive reward. I would determine how much it should influence the landscape. Ideally, the staying_alive reward would be doing the brunt of the work, so we'll say +15 maximally.
-- Then, we have to determine the magnitude of staying_alive's evil twin, is_terminated. is_terminated should be more than the staying_alive reward x max_steps so that falling over feels consequential instead of slightly annoying. In this case, is_terminated could be -20 since (20 > 15). I am so good at math.
+- ~~Then, we have to determine the magnitude of staying_alive's evil twin, is_terminated. is_terminated should be more than the staying_alive reward x max_steps so that falling over feels consequential instead of slightly annoying. In this case, is_terminated could be -20 since (20 > 15). I am so good at math.~~
 - Finally, penalty weights must be determined. The penalties should be prevalant but not overpowering the staying_alive and is_terminated rewards. Their meaning is to give the policy a gradient signal to follow, that's it. So the penalties must be weighted as a sum, appropriately. In this example, we could determine that all of the penalties should accumulate no more than -10.
 
 Using these magnitudes would be significantly better than blindly guessing what numbers would work in the landscape. Following this general 'formula' is the best way to making a healthy reward config that works.
@@ -93,4 +93,8 @@ When it comes to humanoids, and humanoid locomotion training, curriculums are th
 
 The value function loss is heavily influenced by the magnitudes of rewards and penalties. The critic (value network) has the singular job of predicting, from a current state, what the total amount of accumulated reward for the rest of the episode will be. The value function loss is the MSE (mean squared error) of (the actual calculated value of the decision step - the critic's prediction). Early on, when the critic hasn't learned anything, it typically outputs values close to 0. This means that the MSE for massive rewards/penalties is enormous. For my experiment of setting the termination penalty to -100,000,000, this generated value function losses in the quadrillions since the outcome was (~-100,000,000 - 0)² ≈ 10,000,000,000,000,000.
 
-PPO uses an Actor-Critic framework. The actor and critic are seperate networks with different objectives. The actor acts on the environment and the critic predicts rewards given the current state. The critic
+PPO uses an Actor-Critic framework. The actor and critic are seperate networks with different objectives. The actor acts on the environment and the critic predicts the value function (discounted rewards accumulated for the rest of the episode). The critic plays a role in updating the advantage function so the actor can learn from episode to episode.
+
+## Run 027:
+
+I have learned that my original understanding of good practice reward magnitude structures is incorrect. I was going off of the premise that my discrete termination penalty should be higher than my maximum survival reward for the episode, whereas the correct logic was having a termination penalty that is higher than a single step of survival. Generally, discrete termination penalties like mine take up a small to tiny portion of the reward landscape (think 10% instead of 50+). With my high termination penalty in the previous runs, it ended up overshadowing the crucial staying_alive reward once they both "cancel each other out". Tensorboard showed me that this occurred once the H1s reached about a ~60% survival rate. At that point, the termination penalty was responsible for ~-0.04 reward per step while my staying_alive reward was giving ~0.04. It isn't that simple, however. This is mainly an issue with the critic struggling to find "slightly better states" when the return estimates converge close to 0 (at around this 0.04 point). The critic is essentially blinded by the extreme termination penalty, unable to see the tiny gradient signal provided by the shaped staying_alive reward. This is the reason the H1s continued to slowly improve their survival rates (60% --> 75% in 800 iterations) instead of completely flatlining. Therefore, I suppose, the massive termination penalty method does work, albiet extremely inefficiently.
