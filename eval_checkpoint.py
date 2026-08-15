@@ -110,7 +110,9 @@ obs = env.get_observations()
 
 print("[INFO] Collecting data...")
 
-origin_xy = env.unwrapped.scene.env_origins[:, :2]  # (N, 2) — constant spawn XY
+# (N, 2) — actual spawn XY (reset events randomize pose ±0.5m around env origins,
+# so measure drift from where the robot really starts, matching torso_drift_l2)
+spawn_xy = robot.data.root_pos_w[:, :2].clone()
 
 if not args_cli.parallel:
     # ── Sequential: 1 env, N episodes one after another ──────────────────
@@ -126,7 +128,7 @@ if not args_cli.parallel:
         roll, pitch, _ = euler_xyz_from_quat(robot.data.root_quat_w)
         roll_vel  = robot.data.root_ang_vel_b[0, 0].item()
         pitch_vel = robot.data.root_ang_vel_b[0, 1].item()
-        drift_m   = torch.norm(robot.data.root_pos_w[:, :2] - origin_xy, dim=-1)
+        drift_m   = torch.norm(robot.data.root_pos_w[:, :2] - spawn_xy, dim=-1)
 
         current["pitch"].append(pitch[0].item() * RAD_TO_DEG)
         current["pitch_vel"].append(pitch_vel * RAD_TO_DEG)
@@ -137,6 +139,8 @@ if not args_cli.parallel:
         if dones[0]:
             episodes.append({k: np.array(v) for k, v in current.items()})
             current = {"pitch": [], "pitch_vel": [], "roll": [], "roll_vel": [], "drift": []}
+            # env auto-reset inside step() — root_pos_w already holds the new spawn
+            spawn_xy = robot.data.root_pos_w[:, :2].clone()
             episodes_done += 1
             print(f"[INFO] Episode {episodes_done}/{args_cli.episodes} complete ({len(episodes[-1]['pitch'])} steps)")
 
@@ -158,7 +162,7 @@ else:
         roll, pitch, _ = euler_xyz_from_quat(robot.data.root_quat_w)   # (N,)
         roll_vel  = robot.data.root_ang_vel_b[:, 0]                     # (N,)
         pitch_vel = robot.data.root_ang_vel_b[:, 1]                     # (N,)
-        drift_m   = torch.norm(robot.data.root_pos_w[:, :2] - origin_xy, dim=-1)  # (N,)
+        drift_m   = torch.norm(robot.data.root_pos_w[:, :2] - spawn_xy, dim=-1)  # (N,)
 
         for i in range(num_envs):
             if i in captured:
@@ -258,7 +262,7 @@ print(f"[INFO] Saved: {candidate}")
 # ── Drift plot ────────────────────────────────────────────────────────────────
 
 fig2, ax2 = plt.subplots(figsize=(10, 5))
-fig2.suptitle("H1 Balance — XY Drift from Origin", fontsize=14, fontweight="bold")
+fig2.suptitle("H1 Balance — XY Drift from Spawn", fontsize=14, fontweight="bold")
 ax2.set_xlabel("Step")
 ax2.set_ylabel("XY Drift (m)")
 ax2.set_facecolor("#f8f8f8")

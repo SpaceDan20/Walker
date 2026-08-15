@@ -20,6 +20,7 @@ from isaaclab.utils.noise import AdditiveUniformNoiseCfg as Unoise
 
 from isaaclab_assets import H1_MINIMAL_CFG  # isort: skip
 import curriculums as custom_curriculums  # isort: skip
+import observations as custom_observations  # isort: skip
 import rewards as custom_rewards  # isort: skip
 
 # ---------------------------------------------------------------------------
@@ -89,11 +90,24 @@ class H1BalanceObservationsCfg:
             func=mdp.projected_gravity,
             noise=Unoise(n_min=-0.05, n_max=0.05),
         )
+
+        base_height = ObsTerm(
+            func=mdp.base_pos_z,
+            noise=Unoise(n_min=-0.05, n_max=0.05),
+        )
+
+        # Linear velocity
+        base_lin_vel = ObsTerm(
+            func=mdp.base_lin_vel,
+            noise=Unoise(n_min=-0.1, n_max=0.1),
+        )
+
         # Rotational velocity
         base_ang_vel = ObsTerm(
             func=mdp.base_ang_vel,
             noise=Unoise(n_min=-0.2, n_max=0.2),
         )
+
         # Proprioception
         joint_pos = ObsTerm(
             func=mdp.joint_pos_rel,
@@ -103,6 +117,16 @@ class H1BalanceObservationsCfg:
             func=mdp.joint_vel_rel,
             noise=Unoise(n_min=-1.5, n_max=1.5),
         )
+        foot_contact = ObsTerm(
+            func=custom_observations.foot_contact,
+            params={
+                "sensor_cfg": SceneEntityCfg(
+                    "contact_forces", body_names=".*ankle_link"
+                )
+            },
+            noise=Unoise(n_min=-0.05, n_max=0.05),
+        )
+
         # Previous action
         actions = ObsTerm(func=mdp.last_action)
 
@@ -164,16 +188,16 @@ class H1BalanceRewardsCfg:
     termination_penalty = RewTerm(func=mdp.is_terminated, weight=-2.5)
 
     # Built-in shaped penalties
-    joint_deviation_penalty = RewTerm(func=mdp.joint_deviation_l1, weight=-0.0012)
+    joint_deviation_penalty = RewTerm(func=mdp.joint_deviation_l1, weight=-0.002)
     orientation_penalty = RewTerm(func=mdp.flat_orientation_l2, weight=-0.25)
     vertical_penalty = RewTerm(func=mdp.lin_vel_z_l2, weight=-0.01)
-    action_l2 = RewTerm(func=mdp.action_l2, weight=-0.000017)
-    action_rate_l2 = RewTerm(func=mdp.action_rate_l2, weight=-0.000017)
-
-    # Custom shaped penalties from rewards.py
-    torso_drift_penalty = RewTerm(func=custom_rewards.torso_drift_l2, weight=-0.0012)
+    action_l2 = RewTerm(func=mdp.action_l2, weight=-0.0001)
+    action_rate_l2 = RewTerm(func=mdp.action_rate_l2, weight=-0.0001)
 
     # -------------------- Reward Scrapyard ---------------------------------
+
+    # Custom shaped penalties from rewards.py
+    #    torso_drift_penalty = RewTerm(func=custom_rewards.torso_drift_l2, weight=-0.0012)
 
     # knee_bend_penalty = RewTerm(
     #     func=custom_rewards.knee_excess_bend_l2,
@@ -219,26 +243,26 @@ class H1BalanceRewardsCfg:
 # ---------------------------------------------------------------------------
 
 
-@configclass
-class H1BalanceCurriculumCfg:
-    # Shaped penalties start at `scale` × their configured weight and are
-    # promoted to 100% once survival rate >= threshold over `window` episodes.
-    shaped_penalties = CurrTerm(
-        func=custom_curriculums.survival_rate_reward_weights,
-        params={
-            "terms": [
-                "joint_deviation_penalty",
-                "orientation_penalty",
-                "vertical_penalty",
-                "action_l2",
-                "action_rate_l2",
-                "torso_drift_penalty",
-            ],
-            "scale": 0.05,  # start at 5% of each term's configured weight
-            "threshold": 0.97,  # 97% survival rate required to promote
-            "window": 500,  # rolling window of completed episodes
-        },
-    )
+# @configclass
+# class H1BalanceCurriculumCfg:
+#     # Shaped penalties start at `scale` × their configured weight and are
+#     # promoted to 100% once survival rate >= threshold over `window` episodes.
+#     shaped_penalties = CurrTerm(
+#         func=custom_curriculums.survival_rate_reward_weights,
+#         params={
+#             "terms": [
+#                 "joint_deviation_penalty",
+#                 "orientation_penalty",
+#                 "vertical_penalty",
+#                 "action_l2",
+#                 "action_rate_l2",
+#                 "torso_drift_penalty",
+#             ],
+#             "scale": 0.05,  # start at 5% of each term's configured weight
+#             "threshold": 0.97,  # 97% survival rate required to promote
+#             "window": 500,  # rolling window of completed episodes
+#         },
+#     )
 
 
 # ---------------------------------------------------------------------------
@@ -273,7 +297,7 @@ class H1BalanceEnvCfg(ManagerBasedRLEnvCfg):
     rewards: H1BalanceRewardsCfg = H1BalanceRewardsCfg()
     terminations: H1BalanceTerminationsCfg = H1BalanceTerminationsCfg()
     events: H1BalanceEventCfg = H1BalanceEventCfg()
-    curriculum: H1BalanceCurriculumCfg = H1BalanceCurriculumCfg()
+    # curriculum: H1BalanceCurriculumCfg = H1BalanceCurriculumCfg()
 
     def __post_init__(self):
         self.decimation = 4  # policy acts every 4 physics steps (50hz) (200hz / 4)

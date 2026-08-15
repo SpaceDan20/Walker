@@ -40,7 +40,10 @@ class survival_rate_reward_weight(ManagerTermBase):
         if self._promoted:
             return self._term_cfg.weight
 
-        if len(env_ids) > 0:
+        # Skip the warmup phase: init_at_random_ep_len pre-fills episode_length_buf,
+        # so first-episode time-outs are fake survivals. Every first episode has
+        # finished once max_episode_length steps have elapsed.
+        if len(env_ids) > 0 and env.common_step_counter > env.max_episode_length:
             lengths = env.episode_length_buf[env_ids]
             for length in lengths.tolist():
                 self._outcomes.append(length >= env.max_episode_length - 1)
@@ -106,7 +109,10 @@ class survival_rate_reward_weights(ManagerTermBase):
         if self._promoted:
             return 1.0
 
-        if len(env_ids) > 0:
+        # Skip the warmup phase: init_at_random_ep_len pre-fills episode_length_buf,
+        # so first-episode time-outs are fake survivals. Every first episode has
+        # finished once max_episode_length steps have elapsed.
+        if len(env_ids) > 0 and env.common_step_counter > env.max_episode_length:
             lengths = env.episode_length_buf[env_ids]
             for length in lengths.tolist():
                 self._outcomes.append(length >= env.max_episode_length - 1)

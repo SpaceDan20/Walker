@@ -1,32 +1,46 @@
 from __future__ import annotations
 
+from collections.abc import Sequence
 from typing import TYPE_CHECKING
 
 import torch
 
-from isaaclab.assets import RigidObject
-from isaaclab.managers import SceneEntityCfg
+from isaaclab.assets import Articulation
+from isaaclab.managers import ManagerTermBase, RewardTermCfg, SceneEntityCfg
 
 if TYPE_CHECKING:
     from isaaclab.envs import ManagerBasedRLEnv
 
 
-def torso_drift_l2(
-    env: ManagerBasedRLEnv,
-    asset_cfg: SceneEntityCfg = SceneEntityCfg("robot"),
-) -> torch.Tensor:
+class torso_drift_l2(ManagerTermBase):
     """Penalize horizontal drift of the robot root from its spawn position (XY plane only).
 
-    Uses the initial root position recorded at the start of each episode as the
-    reference. Only XY is penalised — Z drift is intentionally ignored so the
-    reward does not conflict with height-keeping terms.
+    The reference is the actual root position recorded at each episode reset —
+    not the env origin — so randomized spawn offsets do not bake a penalty into
+    the start of the episode. Only XY is penalised; Z drift is intentionally
+    ignored so the reward does not conflict with height-keeping terms.
     """
-    asset: RigidObject = env.scene[asset_cfg.name]
 
-    current_xy = asset.data.root_pos_w[:, :2]
-    origin_xy = env.scene.env_origins[:, :2]
+    def __init__(self, cfg: RewardTermCfg, env: ManagerBasedRLEnv):
+        super().__init__(cfg, env)
+        asset_cfg: SceneEntityCfg = cfg.params.get("asset_cfg", SceneEntityCfg("robot"))
+        self._asset: Articulation = env.scene[asset_cfg.name]
+        self._spawn_xy = self._asset.data.root_pos_w[:, :2].clone()
 
-    return torch.sum(torch.square(current_xy - origin_xy), dim=1)
+    def reset(self, env_ids: Sequence[int] | None = None) -> None:
+        # Reset events (randomized spawn pose) run before reward-manager reset,
+        # so root_pos_w already holds the new spawn position here.
+        if env_ids is None:
+            env_ids = slice(None)
+        self._spawn_xy[env_ids] = self._asset.data.root_pos_w[env_ids, :2]
+
+    def __call__(
+        self,
+        env: ManagerBasedRLEnv,
+        asset_cfg: SceneEntityCfg = SceneEntityCfg("robot"),
+    ) -> torch.Tensor:
+        current_xy = self._asset.data.root_pos_w[:, :2]
+        return torch.sum(torch.square(current_xy - self._spawn_xy), dim=1)
 
 
 def knee_excess_bend_l2(

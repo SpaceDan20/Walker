@@ -17,6 +17,9 @@ logs/
 outputs/
 multirun/
 
+# Private MD files
+private/
+
 # Videos
 vids/
 

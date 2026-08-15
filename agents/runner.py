@@ -52,10 +52,16 @@ class H1BalanceOnPolicyRunner(OnPolicyRunner):
 
         buffers = self._term_buffers
         window = self.EPISODE_WINDOW
+        unwrapped_env = self.env.unwrapped
         original_reset = rm.reset  # bound method — keeps rm as implicit self
 
         def _capturing_reset(env_ids):
-            if len(env_ids) > 0:
+            # Skip the warmup phase: init_at_random_ep_len pre-fills episode_length_buf,
+            # so first episodes are partial-length and would pollute the return stats.
+            past_warmup = (
+                unwrapped_env.common_step_counter > unwrapped_env.max_episode_length
+            )
+            if past_warmup and len(env_ids) > 0:
                 for term_name, ep_sums in rm._episode_sums.items():
                     completed = ep_sums[env_ids].float().cpu()
                     if term_name not in buffers:

@@ -497,3 +497,53 @@ We are getting closer to the goal. A lot of the kinks have been buffed out. This
 ### Result:
 
 On a good note, the entropy coeff is looking very healthy now, and the new tensorboard metric is pretty useful. I am able to see that the staying_alive reward continued to contribute meaningfully to the overall gradient (50%+ throughout the run, with a few dips), which means that survival was never truly optimized. However, it did hover at 95%+ survival rates for an extended period of time. Unfortunately, survival started weening off at the end as the H1s began losing balance and falling backward. To top things off, it was not ideal balance anyway. Same wide stance. Same crouching.
+
+## Run 032
+
+### Hypothesis:
+
+There is still work to be done. First and most importantly, there is a 'bug' in my torso_drift penalty. The H1s currently have spawn randomization (their base spawns up to 0.5m away from their origin in the xy plane), and the penalty compares against the env_origin, which is wrong. H1s which spawn away from this env_origin can then be influenced to step back toward it to minimize the currently broken penalty. Fixing this will allow the torso_drift penalty to contribute to the gradient meaningfully instead of harming it. It is wise to make just this change to see how it affects the training.
+
+### Changes:
+
+- Fixed the custom torso_drift penalty logic
+- Added W&B logger for better data visualization
+
+### Result:
+
+Disaster. Everything was going smoothly, for survival, up until ~50 iterations after curriculum advancement. Then the H1s dropped to an astounding 0% survival rate for almost 100 iterations. The H1s also never developed a sound, ideal balancing strategy.
+
+## Run 033
+
+### Hypothesis:
+
+The curriculum is almost surely to blame for the collapse. Currently, my curriculum allows the H1s to maximize their staying_alive reward and minimize the termination penalty until they can adequately survive. Then, after curriculum advance, the agent is hit with a whole new gradient landscape altered by an immense arrival of penalties which suddenly reached their full weights.
+
+This isn't ideal. A smoothed curriculum may be a better fit, but it would be wise to first remove the curriculum without changing the weights to see the differences between the runs.
+
+### Changes:
+
+- Removed the curriculum
+
+### Result:
+
+Still not a very healthy run. The H1s occasionally learn how to survive to extreme lengths (95%+ timeouts), but they eventually drop dramatically. More importantly, the H1s still demonstrate suboptimal behaviors throughout the iterations.
+
+## Run 034
+
+### Hypothesis:
+
+Not enough attention has been given to the observation space. Most notably, the agent cannot minimize my custom torso_drift penalty due to it not being able to perceive it through the current observation terms. The torso_drift penalty is also probably unnecessary over more helpful and relevant penalties like the joint_deviation penalty. Removing the torso_drift penalty in favor of the joint_deviation penalty should encourage less suboptimal behavior. In addition to this, adding the base_lin_vel observation makes the vertical_penalty work. A new base_height observation will give the agent helpful height information, and finally, a foot_contact observation will let the agent know whether or not both robot feet are planted, which should help it learn stable positioning.
+
+### Changes:
+
+- Removed torso_drift penalty
+- Increased joint_deviation and action penalties
+- Added base linear velocity observation
+- Added base height observation
+- Added foot contact observation
+
+### Result:
+
+Total success. The task has been accomplished.
+The H1s finally learned how to survive ~100% of the time without suboptimal behaviors. They jitter slightly and drift subtly over time, but they reliably balance for the entire episode.

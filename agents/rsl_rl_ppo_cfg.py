@@ -13,6 +13,8 @@ class H1BalancePPORunnerCfg(RslRlOnPolicyRunnerCfg):
     save_interval = 100
     experiment_name = "h1_balance"
     empirical_normalization = False
+    logger = "wandb"
+    wandb_project = "h1-balance"
 
     policy = RslRlPpoActorCriticCfg(
         init_noise_std=1.0,
