@@ -188,7 +188,7 @@ class H1BalanceRewardsCfg:
     termination_penalty = RewTerm(func=mdp.is_terminated, weight=-2.5)
 
     # Built-in shaped penalties
-    joint_deviation_penalty = RewTerm(func=mdp.joint_deviation_l1, weight=-0.002)
+    joint_deviation_penalty = RewTerm(func=mdp.joint_deviation_l1, weight=-0.005)
     orientation_penalty = RewTerm(func=mdp.flat_orientation_l2, weight=-0.25)
     vertical_penalty = RewTerm(func=mdp.lin_vel_z_l2, weight=-0.01)
     action_l2 = RewTerm(func=mdp.action_l2, weight=-0.0001)

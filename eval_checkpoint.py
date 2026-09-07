@@ -8,10 +8,17 @@ import os
 from isaaclab.app import AppLauncher
 
 parser = argparse.ArgumentParser(
-    description="Evaluate a trained H1Balance policy and plot phase portraits."
+    description="Evaluate a trained Walker policy and plot phase portraits."
 )
 parser.add_argument(
     "--checkpoint", type=str, required=True, help="Path to the .pt checkpoint file."
+)
+parser.add_argument(
+    "--task",
+    type=str,
+    default=None,
+    help="Task name (e.g. h1-walk) or gym ID. Defaults to inferring it from the "
+    "checkpoint path.",
 )
 parser.add_argument(
     "--episodes", type=int, default=5, help="Number of complete episodes to run."
@@ -52,14 +59,17 @@ from isaaclab_rl.rsl_rl import RslRlVecEnvWrapper
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 import Walker  # noqa: F401
 
-from Walker.agents.rsl_rl_ppo_cfg import H1BalancePPORunnerCfg
+from Walker.agents import rsl_rl_ppo_cfg
+from Walker.tasks import resolve_task
 from isaaclab_tasks.utils.parse_cfg import load_cfg_from_registry
 
-# ── Configs ───────────────────────────────────────────────────────────────────
+# ── Task / configs ────────────────────────────────────────────────────────────
 
-agent_cfg = H1BalancePPORunnerCfg()
+task = resolve_task(args_cli.checkpoint, args_cli.task)
 
-env_cfg = load_cfg_from_registry("Isaac-Balance-H1-FocusPlay-v0", "env_cfg_entry_point")
+agent_cfg = getattr(rsl_rl_ppo_cfg, task.runner_cfg_class)()
+
+env_cfg = load_cfg_from_registry(task.focus_play_id, "env_cfg_entry_point")
 env_cfg.sim.device = (
     args_cli.device if args_cli.device is not None else env_cfg.sim.device
 )
@@ -79,13 +89,14 @@ stats_dir = os.path.join(charts_root, "stats")
 for d in (pp_dir, drift_dir, pitch_dir, roll_dir, stats_dir):
     os.makedirs(d, exist_ok=True)
 
+print(f"[INFO] Task       : {task.name} ({task.focus_play_id})")
 print(f"[INFO] Checkpoint : {checkpoint_path}")
 print(f"[INFO] Episodes   : {args_cli.episodes} ({'parallel' if args_cli.parallel else 'sequential'})")
 print(f"[INFO] Charts dir : {charts_root}")
 
 # ── Environment ───────────────────────────────────────────────────────────────
 
-env = gym.make("Isaac-Balance-H1-FocusPlay-v0", cfg=env_cfg)
+env = gym.make(task.focus_play_id, cfg=env_cfg)
 env = RslRlVecEnvWrapper(env, clip_actions=agent_cfg.clip_actions)
 
 robot = env.unwrapped.scene["robot"]
@@ -191,7 +202,7 @@ ARROW_EVERY = 30  # draw a direction arrow every N steps
 cmap = plt.get_cmap("tab10")
 
 fig, axes = plt.subplots(1, 2, figsize=(14, 6))
-fig.suptitle("H1 Balance — Phase Portraits", fontsize=14, fontweight="bold")
+fig.suptitle(f"{task.display_name} — Phase Portraits", fontsize=14, fontweight="bold")
 
 plane_cfgs = [
     dict(
@@ -262,7 +273,9 @@ print(f"[INFO] Saved: {candidate}")
 # ── Drift plot ────────────────────────────────────────────────────────────────
 
 fig2, ax2 = plt.subplots(figsize=(10, 5))
-fig2.suptitle("H1 Balance — XY Drift from Spawn", fontsize=14, fontweight="bold")
+fig2.suptitle(
+    f"{task.display_name} — XY Drift from Spawn", fontsize=14, fontweight="bold"
+)
 ax2.set_xlabel("Step")
 ax2.set_ylabel("XY Drift (m)")
 ax2.set_facecolor("#f8f8f8")
@@ -308,7 +321,7 @@ print(f"[INFO] Saved: {drift_candidate}")
 
 def _timeseries_plot(title: str, ylabel: str, key: str):
     fig, ax = plt.subplots(figsize=(10, 5))
-    fig.suptitle(f"H1 Balance — {title}", fontsize=14, fontweight="bold")
+    fig.suptitle(f"{task.display_name} — {title}", fontsize=14, fontweight="bold")
     ax.set_xlabel("Step")
     ax.set_ylabel(ylabel)
     ax.axhline(0, color="gray", linewidth=0.6, linestyle="--")

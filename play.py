@@ -1,4 +1,8 @@
-"""Watch a trained H1Balance policy from a checkpoint."""
+"""Watch a trained policy from a checkpoint.
+
+The task is taken from the checkpoint's log folder (logs/<task>/run_NNN/...),
+so no task flag is needed for checkpoints written by train.py.
+"""
 
 from __future__ import annotations
 
@@ -6,9 +10,16 @@ import argparse
 
 from isaaclab.app import AppLauncher
 
-parser = argparse.ArgumentParser(description="Play a trained H1Balance policy.")
+parser = argparse.ArgumentParser(description="Play a trained Walker policy.")
 parser.add_argument(
     "--checkpoint", type=str, required=True, help="Path to the .pt checkpoint file."
+)
+parser.add_argument(
+    "--task",
+    type=str,
+    default=None,
+    help="Task name (e.g. h1-walk) or gym ID. Defaults to inferring it from the "
+    "checkpoint path.",
 )
 parser.add_argument(
     "--real_time",
@@ -40,14 +51,18 @@ from isaaclab_rl.rsl_rl import RslRlVecEnvWrapper
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 import Walker  # noqa: F401
 
-from Walker.agents.rsl_rl_ppo_cfg import H1BalancePPORunnerCfg
+from Walker.agents import rsl_rl_ppo_cfg
+from Walker.tasks import resolve_task
 from isaaclab_tasks.utils.parse_cfg import load_cfg_from_registry
 
-# ── Configs ───────────────────────────────────────────────────────────────────
+# ── Task / configs ────────────────────────────────────────────────────────────
 
-agent_cfg = H1BalancePPORunnerCfg()
+task = resolve_task(args_cli.checkpoint, args_cli.task)
+print(f"[INFO] Task: {task.name} ({task.play_id})")
 
-env_cfg = load_cfg_from_registry("Isaac-Balance-H1-Play-v0", "env_cfg_entry_point")
+agent_cfg = getattr(rsl_rl_ppo_cfg, task.runner_cfg_class)()
+
+env_cfg = load_cfg_from_registry(task.play_id, "env_cfg_entry_point")
 env_cfg.sim.device = (
     args_cli.device if args_cli.device is not None else env_cfg.sim.device
 )
@@ -61,7 +76,7 @@ print(f"[INFO] Loading checkpoint: {checkpoint_path}")
 
 # ── Environment ───────────────────────────────────────────────────────────────
 
-env = gym.make("Isaac-Balance-H1-Play-v0", cfg=env_cfg)
+env = gym.make(task.play_id, cfg=env_cfg)
 env = RslRlVecEnvWrapper(env, clip_actions=agent_cfg.clip_actions)
 
 # ── Runner / policy ───────────────────────────────────────────────────────────

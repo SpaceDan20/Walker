@@ -9,3 +9,7 @@ Teaching H1s to balance is a tougher task than it sounds, especially when going 
 4. Curriculums aren't always necessary either. For simple tasks like balance, a curriculum does little to influence or benefit the overall learning. Poorly implemented curricula can even hurt the training, such as a reward weight curriculum suddenly advancing on an already steadily improving agent.
 
 5. It is VERY important to verify the logical integrity of your environment before all else. Regardless of if you are experimenting, just learning, or actively pursuing a task, an environment that is set up with logical flaws will steal your time unapologetically.
+
+6. Is it also very important to verify training results by running more than one seed. There is a chance that a perfect run was due to a single lucky seed, and that other seeds may not fare so well.
+
+7. Understanding different failure modes is important for implementing tasks. Even though seperate failure modes may have the same fix (a wrong fixed-point attractor and competing fixed-point attractors both requiring a new term over reward reweighting), understanding the failure mode will help you implement an appropriate fix over just guessing.

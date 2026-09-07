@@ -1,4 +1,8 @@
-"""Focus-play viewer: 1 env with a live joint-torque panel (10 Hz UI updates)."""
+"""Focus-play viewer: 1 env with a live joint-torque panel (10 Hz UI updates).
+
+The task is taken from the checkpoint's log folder (logs/<task>/run_NNN/...),
+so no task flag is needed for checkpoints written by train.py.
+"""
 
 from __future__ import annotations
 
@@ -6,9 +10,16 @@ import argparse
 
 from isaaclab.app import AppLauncher
 
-parser = argparse.ArgumentParser(description="Focus-play a trained H1Balance policy.")
+parser = argparse.ArgumentParser(description="Focus-play a trained Walker policy.")
 parser.add_argument(
     "--checkpoint", type=str, required=True, help="Path to the .pt checkpoint file."
+)
+parser.add_argument(
+    "--task",
+    type=str,
+    default=None,
+    help="Task name (e.g. h1-walk) or gym ID. Defaults to inferring it from the "
+    "checkpoint path.",
 )
 parser.add_argument(
     "--real_time",
@@ -45,14 +56,18 @@ from isaaclab_rl.rsl_rl import RslRlVecEnvWrapper
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 import Walker  # noqa: F401
 
-from Walker.agents.rsl_rl_ppo_cfg import H1BalancePPORunnerCfg
+from Walker.agents import rsl_rl_ppo_cfg
+from Walker.tasks import resolve_task
 from isaaclab_tasks.utils.parse_cfg import load_cfg_from_registry
 
-# ── Configs ───────────────────────────────────────────────────────────────────
+# ── Task / configs ────────────────────────────────────────────────────────────
 
-agent_cfg = H1BalancePPORunnerCfg()
+task = resolve_task(args_cli.checkpoint, args_cli.task)
+print(f"[INFO] Task: {task.name} ({task.focus_play_id})")
 
-env_cfg = load_cfg_from_registry("Isaac-Balance-H1-FocusPlay-v0", "env_cfg_entry_point")
+agent_cfg = getattr(rsl_rl_ppo_cfg, task.runner_cfg_class)()
+
+env_cfg = load_cfg_from_registry(task.focus_play_id, "env_cfg_entry_point")
 env_cfg.sim.device = (
     args_cli.device if args_cli.device is not None else env_cfg.sim.device
 )
@@ -67,7 +82,7 @@ print(f"[INFO] Loading checkpoint: {checkpoint_path}")
 
 # ── Environment ───────────────────────────────────────────────────────────────
 
-env = gym.make("Isaac-Balance-H1-FocusPlay-v0", cfg=env_cfg)
+env = gym.make(task.focus_play_id, cfg=env_cfg)
 env = RslRlVecEnvWrapper(env, clip_actions=agent_cfg.clip_actions)
 
 num_envs = env.unwrapped.num_envs
@@ -87,10 +102,11 @@ RAD_TO_DEG = 180.0 / 3.14159265
 # Penalty tracking — read term names from the reward manager
 reward_manager = env.unwrapped.reward_manager
 penalty_names: list[str] = [n for n in reward_manager._episode_sums if n != "termination_penalty"]
-max_penalty_name_len = max(len(n) for n in penalty_names)
+# default=0 so a task whose rewards cfg is still empty does not crash the panel
+max_penalty_name_len = max((len(n) for n in penalty_names), default=0)
 prev_ep_sums: dict[str, float] = {name: 0.0 for name in penalty_names}
 
-torque_window = EmptyWindow(env.unwrapped, "H1 Joint Torques")
+torque_window = EmptyWindow(env.unwrapped, f"{task.display_name} — Joint Torques")
 
 penalty_label: ui.Label
 knee_label: ui.Label
@@ -126,7 +142,7 @@ def _format_penalties(was_reset: bool) -> str:
         lines.append(
             f"  {name:<{max_penalty_name_len}}  {step_val:+.4f} ({current:+.3f})"
         )
-    return "\n".join(lines)
+    return "\n".join(lines) if lines else "  (no reward terms)"
 
 
 def _format_knee_bend(env_idx: int) -> str:
@@ -135,7 +151,7 @@ def _format_knee_bend(env_idx: int) -> str:
     for name, idx in zip(knee_names, knee_indices):
         deg = pos[idx].item() * RAD_TO_DEG
         lines.append(f"  {name:<{max_name_len}}  {deg:+6.1f}°")
-    return "\n".join(lines)
+    return "\n".join(lines) if lines else "  (no knee joints)"
 
 
 def _format_torques(env_idx: int) -> str:

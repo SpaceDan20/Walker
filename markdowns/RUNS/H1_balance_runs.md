@@ -547,3 +547,23 @@ Not enough attention has been given to the observation space. Most notably, the 
 
 Total success. The task has been accomplished.
 The H1s finally learned how to survive ~100% of the time without suboptimal behaviors. They jitter slightly and drift subtly over time, but they reliably balance for the entire episode.
+
+## Run 035 (Seed 2)
+
+### Result:
+
+Spoke too soon! Another run with a different seed prompted a less successful outcome. Survival spiked to 100%, dipped around i800, and only somewhat recovered to ~95% by the last iteration. Even worse, the suboptimal behavior of a wide-legged stance returned.
+
+## Runs 036 - 038
+
+### Hypothesis:
+
+The learning can output near-perfect results like in the first seed, but it isn't stable enough to carry over to other seeds. The H1s did learn to survive meaningfully well in the second seed, but the wide-legged stance must be addressed. By simply increasing the joint_deviation penalty, the wide-legged stance should be overcome in any seed.
+
+### Changes:
+
+- Increased joint_deviation penalty
+
+### Result:
+
+All 3 seeds performed very well this time. At i999, they all have 99.99%+ survival rates with nearly optimal behaviors. Although it is not perfect, and two of the three seeds show signs of instability in the later (~i800-i950) iterations, this is a good enough position to deem this task officially completed. The H1s can now stand up straight on their own two legs.

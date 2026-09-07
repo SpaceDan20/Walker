@@ -13,7 +13,8 @@ import numpy as np
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
-LOG_ROOT = r"S:\IL-RL\Walker\logs\h1-balance"
+from tasks import resolve_task, task_from_name
+
 EVAL_SCRIPT = os.path.join(
     os.path.dirname(os.path.abspath(__file__)), "eval_checkpoint.py"
 )
@@ -22,7 +23,18 @@ parser = argparse.ArgumentParser(
     description="Generate evaluation charts for selected checkpoints in a run."
 )
 parser.add_argument(
-    "--run", type=str, required=True, help="Run folder name, e.g. run_021."
+    "--run",
+    type=str,
+    required=True,
+    help="Run folder: a bare name like run_021 (needs --task), or a path to it "
+    r"like logs\h1-walk\run_021 (task inferred from the path).",
+)
+parser.add_argument(
+    "--task",
+    type=str,
+    default=None,
+    help="Task name (e.g. h1-walk) or gym ID. Required when --run is a bare "
+    "folder name.",
 )
 parser.add_argument(
     "--episodes", type=int, default=5, help="Episodes per checkpoint (default 5)."
@@ -33,7 +45,21 @@ parser.add_argument(
 )
 args = parser.parse_args()
 
-run_dir = os.path.join(LOG_ROOT, args.run)
+# A --run containing a separator is a path to the run folder and carries the
+# task in it; a bare name is resolved against the task's own log root.
+if os.sep in args.run or "/" in args.run:
+    run_dir = os.path.abspath(args.run)
+    task = resolve_task(run_dir, args.task)
+else:
+    if args.task is None:
+        parser.error(
+            f"--run {args.run!r} is a bare folder name, so --task is required "
+            f"(e.g. --task h1-balance). Or pass the path instead: "
+            rf"--run logs\h1-balance\{args.run}"
+        )
+    task = task_from_name(args.task)
+    run_dir = os.path.join(task.log_root, args.run)
+
 if not os.path.isdir(run_dir):
     raise FileNotFoundError(f"Run folder not found: {run_dir}")
 
@@ -47,7 +73,8 @@ if not all_checkpoints:
 
 checkpoints = all_checkpoints[::args.step]
 
-print(f"[INFO] Run      : {args.run}")
+print(f"[INFO] Task     : {task.name}")
+print(f"[INFO] Run      : {run_dir}")
 print(f"[INFO] Found    : {len(all_checkpoints)} checkpoints total")
 print(f"[INFO] Step     : every {args.step} checkpoint(s) ({len(checkpoints)} selected)")
 print(f"[INFO] Episodes : {args.episodes} per checkpoint")
@@ -61,6 +88,7 @@ for i, ckpt in enumerate(checkpoints):
             sys.executable,
             EVAL_SCRIPT,
             "--checkpoint", path,
+            "--task", task.name,  # pass it through so the child need not re-infer
             "--episodes", str(args.episodes),
             "--parallel",
         ],
@@ -97,7 +125,9 @@ else:
         means = [r[cfg["mean_key"]] for r in records]
         stds  = [r[cfg["std_key"]]  for r in records]
         fig, ax = plt.subplots(figsize=(10, 5))
-        fig.suptitle(f"H1 Balance — {cfg['title']}", fontsize=14, fontweight="bold")
+        fig.suptitle(
+            f"{task.display_name} — {cfg['title']}", fontsize=14, fontweight="bold"
+        )
         ax.set_xlabel("Checkpoint Iteration")
         ax.set_ylabel(cfg["ylabel"])
         ax.plot(iters, means, color="steelblue", linewidth=2.0, marker="o", markersize=4, label="Mean")

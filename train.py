@@ -1,4 +1,8 @@
-"""Train the H1 balance task with RSL-RL."""
+"""Train a Walker task with RSL-RL.
+
+The task is selected with --task; everything downstream (agent cfg, log folder)
+follows from it, so adding a task needs no changes here.
+"""
 
 import argparse
 import sys
@@ -12,7 +16,7 @@ sys.path.insert(0, r"S:\IsaacLab\scripts\reinforcement_learning\rsl_rl")
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 import cli_args  # noqa: E402  isort: skip
 
-parser = argparse.ArgumentParser(description="Train H1 balance with RSL-RL.")
+parser = argparse.ArgumentParser(description="Train a Walker task with RSL-RL.")
 parser.add_argument("--video", action="store_true", default=False)
 parser.add_argument("--video_length", type=int, default=200)
 parser.add_argument("--video_interval", type=int, default=2000)
@@ -38,7 +42,7 @@ import os
 
 import gymnasium as gym
 import torch
-from Walker.agents.runner import H1BalanceOnPolicyRunner as OnPolicyRunner
+from Walker.agents.runner import AliveGradientOnPolicyRunner as OnPolicyRunner
 
 from isaaclab.envs import ManagerBasedRLEnvCfg
 from isaaclab.utils.io import dump_yaml
@@ -52,7 +56,7 @@ from isaaclab_rl.rsl_rl import (
 import importlib.metadata as metadata
 
 import isaaclab_tasks  # noqa: F401  (keeps built-in tasks available)
-import Walker  # noqa: F401  registers Isaac-Balance-H1-v0
+import Walker  # noqa: F401  registers every task in Walker/tasks.py
 
 from isaaclab_tasks.utils import get_checkpoint_path
 from isaaclab_tasks.utils.hydra import hydra_task_config
@@ -81,7 +85,15 @@ def main(env_cfg: ManagerBasedRLEnvCfg, agent_cfg: RslRlBaseRunnerCfg):
         args_cli.device if args_cli.device is not None else env_cfg.sim.device
     )
 
-    log_root_path = r"S:\IL-RL\Walker\logs\h1-balance"
+    # Each task gets its own folder under logs/ so run numbering never collides
+    # across tasks. The agent cfg's experiment_name is task-specific and already
+    # honours --experiment_name, so it doubles as the folder name
+    # (h1_balance -> logs/h1-balance, h1_walk -> logs/h1-walk).
+    log_root_path = os.path.join(
+        os.path.dirname(os.path.abspath(__file__)),
+        "logs",
+        agent_cfg.experiment_name.replace("_", "-"),
+    )
     os.makedirs(log_root_path, exist_ok=True)
     existing = [
         d

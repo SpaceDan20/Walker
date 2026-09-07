@@ -8,7 +8,7 @@ import torch
 from rsl_rl.runners import OnPolicyRunner
 
 
-class H1BalanceOnPolicyRunner(OnPolicyRunner):
+class AliveGradientOnPolicyRunner(OnPolicyRunner):
     """Extends OnPolicyRunner with per-term alive-gradient-fraction logging.
 
     Patches reward_manager.reset() at init to capture per-env episode sums at
