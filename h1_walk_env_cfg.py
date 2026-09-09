@@ -28,9 +28,9 @@ from isaaclab.utils.noise import AdditiveUniformNoiseCfg as Unoise
 import isaaclab_tasks.manager_based.locomotion.velocity.mdp as loco_mdp  # noqa: F401
 
 from isaaclab_assets import H1_MINIMAL_CFG  # isort: skip
-import walk_curriculums as custom_curriculums  # noqa: F401  isort: skip
-import walk_observations as custom_observations  # noqa: F401  isort: skip
-import walk_rewards as custom_rewards  # noqa: F401  isort: skip
+from .custom import walk_curriculums as custom_curriculums  # noqa: F401  isort: skip
+from .custom import walk_observations as custom_observations  # noqa: F401  isort: skip
+from .custom import walk_rewards as custom_rewards  # noqa: F401  isort: skip
 
 # ---------------------------------------------------------------------------
 # Scene

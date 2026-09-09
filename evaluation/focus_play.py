@@ -53,7 +53,10 @@ from rsl_rl.runners import OnPolicyRunner
 from isaaclab.envs.ui import EmptyWindow
 from isaaclab_rl.rsl_rl import RslRlVecEnvWrapper
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
+# This file lives in Walker/evaluation/, so put the folder *containing* the
+# Walker package on sys.path
+_WALKER_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.dirname(_WALKER_DIR))
 import Walker  # noqa: F401
 
 from Walker.agents import rsl_rl_ppo_cfg

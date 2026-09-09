@@ -19,9 +19,9 @@ from isaaclab.utils.assets import ISAACLAB_NUCLEUS_DIR
 from isaaclab.utils.noise import AdditiveUniformNoiseCfg as Unoise
 
 from isaaclab_assets import H1_MINIMAL_CFG  # isort: skip
-import curriculums as custom_curriculums  # isort: skip
-import observations as custom_observations  # isort: skip
-import rewards as custom_rewards  # isort: skip
+from .custom import balance_curriculums as custom_curriculums  # isort: skip
+from .custom import balance_observations as custom_observations  # isort: skip
+from .custom import balance_rewards as custom_rewards  # isort: skip
 
 # ---------------------------------------------------------------------------
 # Scene
@@ -196,7 +196,7 @@ class H1BalanceRewardsCfg:
 
     # -------------------- Reward Scrapyard ---------------------------------
 
-    # Custom shaped penalties from rewards.py
+    # Custom shaped penalties from custom/balance_rewards.py
     #    torso_drift_penalty = RewTerm(func=custom_rewards.torso_drift_l2, weight=-0.0012)
 
     # knee_bend_penalty = RewTerm(

@@ -13,7 +13,11 @@ import numpy as np
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
-from tasks import resolve_task, task_from_name
+# This file lives in Walker/evaluation/, so put the folder *containing* the
+# Walker package on sys.path before importing from it
+_WALKER_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.dirname(_WALKER_DIR))
+from Walker.tasks import resolve_task, task_from_name  # noqa: E402
 
 EVAL_SCRIPT = os.path.join(
     os.path.dirname(os.path.abspath(__file__)), "eval_checkpoint.py"
